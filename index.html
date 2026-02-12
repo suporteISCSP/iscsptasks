@@ -4,15 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ISCSP Tasks</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;700&display=swap"
-      rel="stylesheet"
-    />
     <link rel="stylesheet" href="styles.css" />
-    <script src="google-config.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="firebase-config.js"></script>
   </head>
   <body>
     <div class="background-shape bg-shape-one"></div>
@@ -26,14 +19,35 @@
 
       <div class="auth-controls">
         <span id="userLabel" class="user-label"></span>
-        <div id="googleLoginContainer"></div>
         <button id="logoutBtn" class="btn btn-ghost" hidden>Logout</button>
       </div>
     </header>
 
     <main class="app-shell">
-      <section id="authMessage" class="panel">
-        Checking Google sign-in session...
+      <section id="authMessage" class="panel auth-panel">
+        <p id="authStatusText">Checking Firebase authentication...</p>
+        <form id="authForm" class="auth-form" hidden>
+          <label class="field">
+            <span>Email</span>
+            <input id="authEmailInput" type="email" autocomplete="email" required />
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input
+              id="authPasswordInput"
+              type="password"
+              autocomplete="current-password"
+              minlength="6"
+              required
+            />
+          </label>
+          <div class="auth-actions">
+            <button id="authLoginBtn" class="btn btn-primary" type="submit">Login</button>
+            <button id="authRegisterBtn" class="btn btn-ghost" type="button">
+              Create Account
+            </button>
+          </div>
+        </form>
       </section>
 
       <section id="app" hidden>

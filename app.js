@@ -1,5 +1,5 @@
 const STORAGE_KEY = "iscsp_tasks_state_v1";
-const AUTH_STORAGE_KEY = "iscsp_tasks_google_auth_v1";
+const FIREBASE_SDK_VERSION = "10.13.2";
 
 const STATUS_META = {
   todo: { label: "To do", className: "status-todo" },
@@ -18,8 +18,13 @@ const STATUS_RANK = {
 const appElements = {
   app: document.getElementById("app"),
   authMessage: document.getElementById("authMessage"),
+  authStatusText: document.getElementById("authStatusText"),
+  authForm: document.getElementById("authForm"),
+  authEmailInput: document.getElementById("authEmailInput"),
+  authPasswordInput: document.getElementById("authPasswordInput"),
+  authLoginBtn: document.getElementById("authLoginBtn"),
+  authRegisterBtn: document.getElementById("authRegisterBtn"),
   userLabel: document.getElementById("userLabel"),
-  googleLoginContainer: document.getElementById("googleLoginContainer"),
   logoutBtn: document.getElementById("logoutBtn"),
   tabButtons: Array.from(document.querySelectorAll(".tab-btn")),
   tasksTab: document.getElementById("tasksTab"),
@@ -37,8 +42,9 @@ const appElements = {
 };
 
 let state = loadState();
-let googleAuthReady = false;
-let currentUser = loadAuthSession();
+let firebaseAuth = null;
+let firebaseAuthApi = null;
+let firebaseAuthReady = false;
 
 setupEventHandlers();
 renderAll();
@@ -113,14 +119,68 @@ function setupEventHandlers() {
   appElements.listsContainer.addEventListener("change", handleListContainerChange);
   appElements.listsContainer.addEventListener("input", handleListContainerInput);
 
-  appElements.logoutBtn.addEventListener("click", () => {
-    currentUser = null;
-    clearAuthSession();
-    if (window.google?.accounts?.id) {
-      window.google.accounts.id.disableAutoSelect();
-    }
-    setSignedOutState("You are signed out. Login with Google to access Tasks and Lists.");
-  });
+  appElements.authForm.addEventListener("submit", handleAuthSignIn);
+  appElements.authRegisterBtn.addEventListener("click", handleAuthRegister);
+  appElements.logoutBtn.addEventListener("click", handleAuthSignOut);
+}
+
+async function handleAuthSignIn(event) {
+  event.preventDefault();
+  if (!firebaseAuthReady || !firebaseAuth || !firebaseAuthApi) {
+    setSignedOutState("Firebase is still loading. Please wait a moment.", false);
+    return;
+  }
+
+  const email = appElements.authEmailInput.value.trim();
+  const password = appElements.authPasswordInput.value;
+  if (!email || !password) {
+    setSignedOutState("Enter email and password.", true);
+    return;
+  }
+
+  setAuthFormBusy(true);
+  try {
+    await firebaseAuthApi.signInWithEmailAndPassword(firebaseAuth, email, password);
+  } catch (error) {
+    setSignedOutState(formatFirebaseAuthError(error), true);
+  } finally {
+    setAuthFormBusy(false);
+  }
+}
+
+async function handleAuthRegister() {
+  if (!firebaseAuthReady || !firebaseAuth || !firebaseAuthApi) {
+    setSignedOutState("Firebase is still loading. Please wait a moment.", false);
+    return;
+  }
+
+  const email = appElements.authEmailInput.value.trim();
+  const password = appElements.authPasswordInput.value;
+  if (!email || !password) {
+    setSignedOutState("Enter email and password to create an account.", true);
+    return;
+  }
+
+  setAuthFormBusy(true);
+  try {
+    await firebaseAuthApi.createUserWithEmailAndPassword(firebaseAuth, email, password);
+  } catch (error) {
+    setSignedOutState(formatFirebaseAuthError(error), true);
+  } finally {
+    setAuthFormBusy(false);
+  }
+}
+
+async function handleAuthSignOut() {
+  if (!firebaseAuthReady || !firebaseAuth || !firebaseAuthApi) {
+    return;
+  }
+
+  try {
+    await firebaseAuthApi.signOut(firebaseAuth);
+  } catch (error) {
+    setSignedOutState(formatFirebaseAuthError(error), true);
+  }
 }
 
 function renderAll() {
@@ -512,171 +572,114 @@ function escapeHtml(value) {
 }
 
 async function initAuth() {
-  const config = window.GOOGLE_AUTH_CONFIG;
+  setSignedOutState("Loading Firebase authentication...", false);
+
+  const config = window.FIREBASE_CONFIG;
   if (!config) {
     setSignedOutState(
-      "Missing google-config.js. Copy google-config.sample.js to google-config.js and set your Google clientId.",
+      "Missing firebase-config.js. Copy firebase-config.sample.js to firebase-config.js and fill your Firebase values.",
+      false,
     );
     return;
   }
 
-  const looksLikePlaceholderConfig =
-    String(config.clientId || "").includes("your-google-oauth-client-id") ||
-    !String(config.clientId || "").trim();
-
-  if (looksLikePlaceholderConfig) {
-    setSignedOutState("Update google-config.js with your real Google OAuth clientId.");
+  const requiredConfigKeys = ["apiKey", "authDomain", "projectId", "appId"];
+  const missingKey = requiredConfigKeys.find((key) => !String(config[key] || "").trim());
+  if (missingKey) {
+    setSignedOutState(`firebase-config.js is missing '${missingKey}'.`, false);
     return;
   }
 
-  const gsiLoaded = await waitForGoogleIdentityServices();
-  if (!gsiLoaded) {
-    setSignedOutState("Google Identity Services script could not be loaded.");
+  const looksLikePlaceholderConfig = requiredConfigKeys.some((key) =>
+    String(config[key] || "").toLowerCase().includes("your-"),
+  );
+  if (looksLikePlaceholderConfig) {
+    setSignedOutState("Update firebase-config.js with your real Firebase project values.", false);
     return;
   }
 
   try {
-    window.google.accounts.id.initialize({
-      client_id: config.clientId,
-      callback: handleGoogleCredentialResponse,
-      auto_select: true,
-      cancel_on_tap_outside: false,
+    const [
+      { initializeApp },
+      {
+        getAuth,
+        onAuthStateChanged,
+        signInWithEmailAndPassword,
+        createUserWithEmailAndPassword,
+        signOut,
+      },
+    ] = await Promise.all([
+      import(`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-app.js`),
+      import(`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-auth.js`),
+    ]);
+
+    const firebaseApp = initializeApp(config);
+    firebaseAuth = getAuth(firebaseApp);
+    firebaseAuthApi = {
+      signInWithEmailAndPassword,
+      createUserWithEmailAndPassword,
+      signOut,
+    };
+    firebaseAuthReady = true;
+    setAuthFormBusy(false);
+
+    onAuthStateChanged(firebaseAuth, (user) => {
+      if (user) {
+        setSignedInState(user);
+        appElements.authForm.reset();
+        return;
+      }
+
+      setSignedOutState("Sign in with your Firebase account to access Tasks and Lists.", true);
     });
-
-    googleAuthReady = true;
-
-    // Render official Google button.
-    window.google.accounts.id.renderButton(appElements.googleLoginContainer, {
-      theme: "outline",
-      size: "large",
-      shape: "pill",
-      text: "continue_with",
-      logo_alignment: "left",
-      width: 230,
-    });
-
-    if (currentUser) {
-      setSignedInState(currentUser);
-      return;
-    }
-
-    setSignedOutState("You are signed out. Login with Google to access Tasks and Lists.");
-    window.google.accounts.id.prompt();
   } catch (error) {
-    console.error("Google auth initialization failed:", error);
-    setSignedOutState("Failed to initialize Google sign-in. Confirm your configuration.");
+    console.error("Firebase auth initialization failed:", error);
+    setSignedOutState("Failed to initialize Firebase authentication.", false);
   }
 }
 
-function handleGoogleCredentialResponse(response) {
-  const token = response?.credential;
-  if (!token) {
-    setSignedOutState("Google login failed. Try again.");
-    return;
-  }
-
-  const payload = decodeJwtPayload(token);
-  if (!payload || !payload.sub) {
-    setSignedOutState("Could not read the Google identity token.");
-    return;
-  }
-
-  currentUser = {
-    sub: payload.sub,
-    email: payload.email || "",
-    name: payload.name || payload.email || "Google user",
-    picture: payload.picture || "",
-    exp: payload.exp || null,
-  };
-  saveAuthSession(currentUser);
-  setSignedInState(currentUser);
-}
-
-function setSignedOutState(message) {
+function setSignedOutState(message, showForm) {
   appElements.app.hidden = true;
   appElements.authMessage.hidden = false;
-  appElements.authMessage.textContent = message;
+  appElements.authStatusText.textContent = message;
+  appElements.authForm.hidden = !showForm;
   appElements.userLabel.textContent = "";
-  appElements.googleLoginContainer.hidden = !googleAuthReady;
   appElements.logoutBtn.hidden = true;
 }
 
 function setSignedInState(user) {
   appElements.app.hidden = false;
   appElements.authMessage.hidden = true;
-  appElements.userLabel.textContent = user?.name || user?.email || "Authenticated user";
-  appElements.googleLoginContainer.hidden = true;
+  appElements.userLabel.textContent = user?.displayName || user?.email || "Authenticated user";
   appElements.logoutBtn.hidden = false;
 }
 
-function loadAuthSession() {
-  const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-  if (!raw) {
-    return null;
+function setAuthFormBusy(isBusy) {
+  appElements.authEmailInput.disabled = isBusy;
+  appElements.authPasswordInput.disabled = isBusy;
+  appElements.authLoginBtn.disabled = isBusy;
+  appElements.authRegisterBtn.disabled = isBusy;
+}
+
+function formatFirebaseAuthError(error) {
+  const code = String(error?.code || "");
+
+  switch (code) {
+    case "auth/invalid-email":
+      return "Invalid email format.";
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+    case "auth/user-not-found":
+      return "Invalid email or password.";
+    case "auth/email-already-in-use":
+      return "This email is already in use.";
+    case "auth/weak-password":
+      return "Password is too weak (minimum 6 characters).";
+    case "auth/too-many-requests":
+      return "Too many attempts. Please wait and try again.";
+    case "auth/network-request-failed":
+      return "Network error. Check your connection and try again.";
+    default:
+      return "Authentication failed. Please try again.";
   }
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed?.sub) {
-      return null;
-    }
-    if (parsed.exp && Date.now() >= Number(parsed.exp) * 1000) {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function saveAuthSession(session) {
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
-}
-
-function clearAuthSession() {
-  localStorage.removeItem(AUTH_STORAGE_KEY);
-}
-
-function decodeJwtPayload(token) {
-  try {
-    const segments = token.split(".");
-    if (segments.length < 2) {
-      return null;
-    }
-
-    const base64 = segments[1].replace(/-/g, "+").replace(/_/g, "/");
-    const paddedBase64 = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
-    const json = decodeURIComponent(
-      atob(paddedBase64)
-        .split("")
-        .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, "0")}`)
-        .join(""),
-    );
-    return JSON.parse(json);
-  } catch {
-    return null;
-  }
-}
-
-function waitForGoogleIdentityServices(timeoutMs = 8000) {
-  return new Promise((resolve) => {
-    const startedAt = Date.now();
-
-    function check() {
-      if (window.google?.accounts?.id) {
-        resolve(true);
-        return;
-      }
-
-      if (Date.now() - startedAt >= timeoutMs) {
-        resolve(false);
-        return;
-      }
-
-      setTimeout(check, 50);
-    }
-
-    check();
-  });
 }
