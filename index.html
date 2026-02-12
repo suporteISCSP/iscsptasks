@@ -11,8 +11,8 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
-    <script src="keycloak-config.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/keycloak-js@24.0.5/dist/keycloak.min.js"></script>
+    <script src="google-config.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
   <body>
     <div class="background-shape bg-shape-one"></div>
@@ -26,14 +26,14 @@
 
       <div class="auth-controls">
         <span id="userLabel" class="user-label"></span>
-        <button id="loginBtn" class="btn btn-primary">Login with Keycloak</button>
+        <div id="googleLoginContainer"></div>
         <button id="logoutBtn" class="btn btn-ghost" hidden>Logout</button>
       </div>
     </header>
 
     <main class="app-shell">
       <section id="authMessage" class="panel">
-        Checking Keycloak session...
+        Checking Google sign-in session...
       </section>
 
       <section id="app" hidden>

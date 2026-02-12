@@ -1,4 +1,5 @@
 const STORAGE_KEY = "iscsp_tasks_state_v1";
+const AUTH_STORAGE_KEY = "iscsp_tasks_google_auth_v1";
 
 const STATUS_META = {
   todo: { label: "To do", className: "status-todo" },
@@ -18,7 +19,7 @@ const appElements = {
   app: document.getElementById("app"),
   authMessage: document.getElementById("authMessage"),
   userLabel: document.getElementById("userLabel"),
-  loginBtn: document.getElementById("loginBtn"),
+  googleLoginContainer: document.getElementById("googleLoginContainer"),
   logoutBtn: document.getElementById("logoutBtn"),
   tabButtons: Array.from(document.querySelectorAll(".tab-btn")),
   tasksTab: document.getElementById("tasksTab"),
@@ -36,8 +37,8 @@ const appElements = {
 };
 
 let state = loadState();
-let keycloakClient = null;
-let refreshTimer = null;
+let googleAuthReady = false;
+let currentUser = loadAuthSession();
 
 setupEventHandlers();
 renderAll();
@@ -111,6 +112,15 @@ function setupEventHandlers() {
   appElements.listsContainer.addEventListener("click", handleListContainerClick);
   appElements.listsContainer.addEventListener("change", handleListContainerChange);
   appElements.listsContainer.addEventListener("input", handleListContainerInput);
+
+  appElements.logoutBtn.addEventListener("click", () => {
+    currentUser = null;
+    clearAuthSession();
+    if (window.google?.accounts?.id) {
+      window.google.accounts.id.disableAutoSelect();
+    }
+    setSignedOutState("You are signed out. Login with Google to access Tasks and Lists.");
+  });
 }
 
 function renderAll() {
@@ -502,101 +512,171 @@ function escapeHtml(value) {
 }
 
 async function initAuth() {
-  const config = window.KEYCLOAK_CONFIG;
+  const config = window.GOOGLE_AUTH_CONFIG;
   if (!config) {
-    appElements.loginBtn.disabled = true;
     setSignedOutState(
-      "Missing keycloak-config.js. Copy keycloak-config.sample.js to keycloak-config.js and fill your realm/client values.",
+      "Missing google-config.js. Copy google-config.sample.js to google-config.js and set your Google clientId.",
     );
     return;
   }
 
   const looksLikePlaceholderConfig =
-    String(config.url || "").includes("your-keycloak-domain") ||
-    String(config.realm || "") === "your-realm" ||
-    String(config.clientId || "") === "your-client-id";
+    String(config.clientId || "").includes("your-google-oauth-client-id") ||
+    !String(config.clientId || "").trim();
 
   if (looksLikePlaceholderConfig) {
-    appElements.loginBtn.disabled = true;
-    setSignedOutState(
-      "Update keycloak-config.js with your real Keycloak URL, realm, and clientId.",
-    );
+    setSignedOutState("Update google-config.js with your real Google OAuth clientId.");
     return;
   }
 
-  if (typeof window.Keycloak !== "function") {
-    appElements.loginBtn.disabled = true;
-    setSignedOutState("Keycloak library could not be loaded.");
+  const gsiLoaded = await waitForGoogleIdentityServices();
+  if (!gsiLoaded) {
+    setSignedOutState("Google Identity Services script could not be loaded.");
     return;
   }
-
-  keycloakClient = new window.Keycloak(config);
-  appElements.loginBtn.addEventListener("click", () => {
-    keycloakClient.login({ redirectUri: window.location.href });
-  });
-  appElements.logoutBtn.addEventListener("click", () => {
-    keycloakClient.logout({
-      redirectUri: `${window.location.origin}${window.location.pathname}`,
-    });
-  });
 
   try {
-    const authenticated = await keycloakClient.init({
-      onLoad: "check-sso",
-      pkceMethod: "S256",
-      checkLoginIframe: false,
+    window.google.accounts.id.initialize({
+      client_id: config.clientId,
+      callback: handleGoogleCredentialResponse,
+      auto_select: true,
+      cancel_on_tap_outside: false,
     });
 
-    if (!authenticated) {
-      setSignedOutState("You are signed out. Login to access Tasks and Lists.");
+    googleAuthReady = true;
+
+    // Render official Google button.
+    window.google.accounts.id.renderButton(appElements.googleLoginContainer, {
+      theme: "outline",
+      size: "large",
+      shape: "pill",
+      text: "continue_with",
+      logo_alignment: "left",
+      width: 230,
+    });
+
+    if (currentUser) {
+      setSignedInState(currentUser);
       return;
     }
 
-    setSignedInState();
-    startTokenRefresh();
+    setSignedOutState("You are signed out. Login with Google to access Tasks and Lists.");
+    window.google.accounts.id.prompt();
   } catch (error) {
-    console.error("Keycloak init failed:", error);
-    appElements.loginBtn.disabled = true;
-    setSignedOutState("Failed to initialize Keycloak. Confirm your configuration.");
+    console.error("Google auth initialization failed:", error);
+    setSignedOutState("Failed to initialize Google sign-in. Confirm your configuration.");
   }
 }
 
-function setSignedOutState(message) {
-  if (refreshTimer) {
-    clearInterval(refreshTimer);
-    refreshTimer = null;
+function handleGoogleCredentialResponse(response) {
+  const token = response?.credential;
+  if (!token) {
+    setSignedOutState("Google login failed. Try again.");
+    return;
   }
 
+  const payload = decodeJwtPayload(token);
+  if (!payload || !payload.sub) {
+    setSignedOutState("Could not read the Google identity token.");
+    return;
+  }
+
+  currentUser = {
+    sub: payload.sub,
+    email: payload.email || "",
+    name: payload.name || payload.email || "Google user",
+    picture: payload.picture || "",
+    exp: payload.exp || null,
+  };
+  saveAuthSession(currentUser);
+  setSignedInState(currentUser);
+}
+
+function setSignedOutState(message) {
   appElements.app.hidden = true;
   appElements.authMessage.hidden = false;
   appElements.authMessage.textContent = message;
   appElements.userLabel.textContent = "";
-  appElements.loginBtn.hidden = false;
+  appElements.googleLoginContainer.hidden = !googleAuthReady;
   appElements.logoutBtn.hidden = true;
 }
 
-function setSignedInState() {
-  const parsed = keycloakClient?.tokenParsed || {};
-  const username =
-    parsed.preferred_username || parsed.name || parsed.given_name || "Authenticated user";
-
+function setSignedInState(user) {
   appElements.app.hidden = false;
   appElements.authMessage.hidden = true;
-  appElements.userLabel.textContent = username;
-  appElements.loginBtn.hidden = true;
+  appElements.userLabel.textContent = user?.name || user?.email || "Authenticated user";
+  appElements.googleLoginContainer.hidden = true;
   appElements.logoutBtn.hidden = false;
 }
 
-function startTokenRefresh() {
-  refreshTimer = setInterval(async () => {
-    if (!keycloakClient) {
-      return;
+function loadAuthSession() {
+  const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed?.sub) {
+      return null;
+    }
+    if (parsed.exp && Date.now() >= Number(parsed.exp) * 1000) {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveAuthSession(session) {
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+}
+
+function clearAuthSession() {
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
+function decodeJwtPayload(token) {
+  try {
+    const segments = token.split(".");
+    if (segments.length < 2) {
+      return null;
     }
 
-    try {
-      await keycloakClient.updateToken(45);
-    } catch {
-      setSignedOutState("Session expired. Login again to continue.");
+    const base64 = segments[1].replace(/-/g, "+").replace(/_/g, "/");
+    const paddedBase64 = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+    const json = decodeURIComponent(
+      atob(paddedBase64)
+        .split("")
+        .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, "0")}`)
+        .join(""),
+    );
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+function waitForGoogleIdentityServices(timeoutMs = 8000) {
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+
+    function check() {
+      if (window.google?.accounts?.id) {
+        resolve(true);
+        return;
+      }
+
+      if (Date.now() - startedAt >= timeoutMs) {
+        resolve(false);
+        return;
+      }
+
+      setTimeout(check, 50);
     }
-  }, 30000);
+
+    check();
+  });
 }
