@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ISCSP Tasks</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="keycloak-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/keycloak-js@24.0.5/dist/keycloak.min.js"></script>
+  </head>
+  <body>
+    <div class="background-shape bg-shape-one"></div>
+    <div class="background-shape bg-shape-two"></div>
+
+    <header class="top-bar">
+      <div>
+        <h1>ISCSP Tasks</h1>
+        <p class="subtitle">Task and List workspace</p>
+      </div>
+
+      <div class="auth-controls">
+        <span id="userLabel" class="user-label"></span>
+        <button id="loginBtn" class="btn btn-primary">Login with Keycloak</button>
+        <button id="logoutBtn" class="btn btn-ghost" hidden>Logout</button>
+      </div>
+    </header>
+
+    <main class="app-shell">
+      <section id="authMessage" class="panel">
+        Checking Keycloak session...
+      </section>
+
+      <section id="app" hidden>
+        <nav class="tabs">
+          <button class="tab-btn active" data-tab="tasks">Tasks</button>
+          <button class="tab-btn" data-tab="lists">Lists</button>
+        </nav>
+
+        <section id="tasksTab" class="panel tab-content">
+          <div class="section-head">
+            <h2>Tasks</h2>
+          </div>
+
+          <form id="taskCreateForm" class="create-form">
+            <label class="field">
+              <span>Task title</span>
+              <input id="taskTitleInput" type="text" placeholder="e.g. Send weekly report" required />
+            </label>
+            <label class="field">
+              <span>Initial note (optional)</span>
+              <textarea
+                id="taskNoteInput"
+                rows="2"
+                placeholder="Add context for this task..."
+              ></textarea>
+            </label>
+            <button type="submit" class="btn btn-primary">Add Task</button>
+          </form>
+
+          <div class="toolbar">
+            <label class="field compact">
+              <span>Filter by status</span>
+              <select id="taskFilterSelect">
+                <option value="all">All</option>
+                <option value="todo">To do</option>
+                <option value="in_progress">In progress</option>
+                <option value="unresolved">Unresolved</option>
+                <option value="resolved">Resolved</option>
+              </select>
+            </label>
+
+            <label class="field compact">
+              <span>Sort</span>
+              <select id="taskSortSelect">
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+                <option value="title">Title (A-Z)</option>
+                <option value="status">Status</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="taskList" class="list-grid"></div>
+        </section>
+
+        <section id="listsTab" class="panel tab-content" hidden>
+          <div class="section-head">
+            <h2>Lists</h2>
+          </div>
+
+          <form id="listCreateForm" class="create-form list-create-form">
+            <label class="field">
+              <span>List name</span>
+              <input id="listNameInput" type="text" placeholder="e.g. Grocery list" required />
+            </label>
+            <button type="submit" class="btn btn-primary">Create List</button>
+          </form>
+
+          <div class="toolbar">
+            <label class="field compact">
+              <span>Item filter</span>
+              <select id="itemFilterSelect">
+                <option value="all">All items</option>
+                <option value="checked">Checked only</option>
+                <option value="unchecked">Unchecked only</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="listsContainer" class="list-grid"></div>
+        </section>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
