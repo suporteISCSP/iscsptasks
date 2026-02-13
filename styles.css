@@ -20,7 +20,13 @@
 
 @font-face {
   font-family: "AmarilloUSAF";
-  src: local("AmarilloUSAF"), local("Amarillo USAF"), local("AmarilloUSAF-Regular");
+  src:
+    url("https://fonts.cdnfonts.com/s/4279/amarurgt.woff") format("woff"),
+    url("assets/fonts/AmarilloUSAF.woff2") format("woff2"),
+    url("assets/fonts/AmarilloUSAF.ttf") format("truetype"),
+    local("AmarilloUSAF"),
+    local("Amarillo USAF"),
+    local("AmarilloUSAF-Regular");
   font-display: swap;
 }
 
@@ -302,12 +308,6 @@ textarea:focus {
   gap: 12px;
 }
 
-.task-head h3,
-.list-head h3 {
-  font-size: 1.1rem;
-  overflow-wrap: anywhere;
-}
-
 .task-title-input {
   font-weight: 700;
 }
@@ -315,6 +315,22 @@ textarea:focus {
 .list-title-input,
 .item-title-input {
   font-weight: 700;
+}
+
+.task-head .task-title-input,
+.list-head .list-title-input {
+  font-size: 1.1rem;
+  min-width: 0;
+  flex: 1;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 6px 8px;
+}
+
+.task-head .task-title-input:focus,
+.list-head .list-title-input:focus {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .task-controls {
@@ -375,7 +391,7 @@ textarea:focus {
   border-radius: 10px;
   padding: 8px;
   display: grid;
-  grid-template-columns: auto minmax(100px, 0.9fr) minmax(150px, 1.1fr) minmax(140px, 1fr) auto;
+  grid-template-columns: auto minmax(180px, 1.1fr) minmax(140px, 1fr) auto;
   gap: 8px;
   align-items: center;
 }
@@ -387,13 +403,6 @@ textarea:focus {
 .item-check {
   width: 18px;
   height: 18px;
-}
-
-.item-title-display {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text);
-  overflow-wrap: anywhere;
 }
 
 .empty-state {
@@ -431,10 +440,6 @@ textarea:focus {
 
   .item-row {
     grid-template-columns: auto 1fr;
-  }
-
-  .item-row .item-title-display {
-    grid-column: 2 / -1;
   }
 
   .item-row .item-title-input {

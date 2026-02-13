@@ -355,13 +355,6 @@ function handleTaskListChange(event) {
     task.title = nextTitle;
     task.updatedAt = Date.now();
     saveState();
-
-    const display = target
-      .closest(".task-card")
-      ?.querySelector(".task-title-display");
-    if (display) {
-      display.textContent = nextTitle;
-    }
   }
 }
 
@@ -383,13 +376,6 @@ function handleTaskListInput(event) {
     task.title = nextTitle;
     task.updatedAt = Date.now();
     saveState();
-
-    const display = target
-      .closest(".task-card")
-      ?.querySelector(".task-title-display");
-    if (display) {
-      display.textContent = nextTitle;
-    }
     return;
   }
 
@@ -449,12 +435,6 @@ function renderTasks() {
       return `
         <article class="task-card">
           <div class="task-head">
-            <h3 class="task-title-display">${escapeHtml(task.title)}</h3>
-            <span class="status-pill ${meta.className}">${meta.label}</span>
-          </div>
-
-          <label class="field">
-            <span>Title</span>
             <input
               class="task-title-input"
               data-task-id="${task.id}"
@@ -462,7 +442,8 @@ function renderTasks() {
               value="${escapeHtml(task.title)}"
               aria-label="Task title"
             />
-          </label>
+            <span class="status-pill ${meta.className}">${meta.label}</span>
+          </div>
 
           <div class="task-controls">
             <label class="field compact">
@@ -598,13 +579,6 @@ function handleListContainerChange(event) {
 
     list.name = nextName;
     saveState();
-
-    const display = target
-      .closest(".list-card")
-      ?.querySelector(".list-title-display");
-    if (display) {
-      display.textContent = nextName;
-    }
     return;
   }
 
@@ -637,13 +611,6 @@ function handleListContainerChange(event) {
 
     item.label = nextLabel;
     saveState();
-
-    const display = target
-      .closest(".item-row")
-      ?.querySelector(".item-title-display");
-    if (display) {
-      display.textContent = nextLabel;
-    }
   }
 }
 
@@ -664,13 +631,6 @@ function handleListContainerInput(event) {
 
     list.name = nextName;
     saveState();
-
-    const display = target
-      .closest(".list-card")
-      ?.querySelector(".list-title-display");
-    if (display) {
-      display.textContent = nextName;
-    }
     return;
   }
 
@@ -687,13 +647,6 @@ function handleListContainerInput(event) {
 
     item.label = nextLabel;
     saveState();
-
-    const display = target
-      .closest(".item-row")
-      ?.querySelector(".item-title-display");
-    if (display) {
-      display.textContent = nextLabel;
-    }
     return;
   }
 
@@ -737,14 +690,6 @@ function renderLists() {
       return `
         <article class="list-card">
           <div class="list-head">
-            <h3 class="list-title-display">${escapeHtml(list.name)}</h3>
-            <button class="btn btn-ghost list-delete-btn" data-list-id="${list.id}" type="button">
-              Delete List
-            </button>
-          </div>
-
-          <label class="field">
-            <span>List title</span>
             <input
               class="list-title-input"
               type="text"
@@ -752,7 +697,10 @@ function renderLists() {
               value="${escapeHtml(list.name)}"
               aria-label="List title"
             />
-          </label>
+            <button class="btn btn-ghost list-delete-btn" data-list-id="${list.id}" type="button">
+              Delete List
+            </button>
+          </div>
 
           <form class="item-create-form inline-form" data-list-id="${list.id}">
             <input class="item-name-input" type="text" placeholder="Add item..." required />
@@ -774,7 +722,6 @@ function renderLists() {
                     data-item-id="${item.id}"
                     ${item.checked ? "checked" : ""}
                   />
-                  <span class="item-title-display">${escapeHtml(item.label)}</span>
                   <input
                     class="item-label-input item-title-input"
                     type="text"
