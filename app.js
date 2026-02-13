@@ -2,6 +2,9 @@ const STORAGE_KEY = "iscsp_tasks_state_v1";
 const FIREBASE_SDK_VERSION = "10.13.2";
 const SHARED_STATE_COLLECTION = "shared";
 const SHARED_STATE_DOCUMENT = "globalState";
+const SESSION_ID = uid();
+const EDITABLE_INPUT_SELECTOR =
+  ".task-title-input, .task-note-input, .list-title-input, .item-title-input, .item-note-input, .item-name-input, #taskTitleInput, #taskNoteInput, #listNameInput, #authEmailInput, #authPasswordInput";
 
 const STATUS_META = {
   todo: { label: "To do", className: "status-todo" },
@@ -55,6 +58,9 @@ let sharedSyncReady = false;
 let sharedWriteTimer = null;
 let lastSharedStateString = "";
 let firstSnapshotLoaded = false;
+let pendingRemoteState = null;
+let pendingRemoteStateString = "";
+let pendingRemoteApplyTimer = null;
 
 setupEventHandlers();
 renderAll();
@@ -843,6 +849,8 @@ async function startSharedStateSync() {
   sharedSyncReady = true;
   lastSharedStateString = "";
   firstSnapshotLoaded = false;
+  pendingRemoteState = null;
+  pendingRemoteStateString = "";
   setSyncStatus("Sync connecting...", "warn");
 
   return new Promise((resolve) => {
@@ -854,21 +862,34 @@ async function startSharedStateSync() {
         if (!snapshot.exists()) {
           await writeSharedState(true);
         } else {
-          const raw = snapshot.data()?.state;
-          const remoteState = normalizeState(raw);
+          const snapshotData = snapshot.data() || {};
+          const remoteState = normalizeState(snapshotData.state);
           const remoteStateString = JSON.stringify(remoteState);
-          const currentStateString = JSON.stringify(normalizeState(state));
-          if (remoteStateString !== currentStateString) {
-            state = remoteState;
+          const fromThisSession = snapshotData.updatedBySession === SESSION_ID;
+
+          if (fromThisSession) {
+            // Ignore our own echoed writes to prevent cursor jumps while typing.
             lastSharedStateString = remoteStateString;
-            localStorage.setItem(STORAGE_KEY, remoteStateString);
-            renderAll();
           } else {
-            lastSharedStateString = remoteStateString;
+            const currentStateString = JSON.stringify(normalizeState(state));
+            if (remoteStateString !== currentStateString) {
+              if (isEditingInput()) {
+                pendingRemoteState = remoteState;
+                pendingRemoteStateString = remoteStateString;
+                queuePendingRemoteApply();
+                setSyncStatus("Sync pending...", "warn");
+              } else {
+                applyRemoteState(remoteState, remoteStateString);
+              }
+            } else {
+              lastSharedStateString = remoteStateString;
+            }
           }
         }
 
-        setSyncStatus("Sync connected", "ok");
+        if (!pendingRemoteState) {
+          setSyncStatus("Sync connected", "ok");
+        }
         firstSnapshotLoaded = true;
 
         if (!resolved) {
@@ -904,10 +925,17 @@ function stopSharedStateSync() {
   sharedSyncReady = false;
   firstSnapshotLoaded = false;
   lastSharedStateString = "";
+  pendingRemoteState = null;
+  pendingRemoteStateString = "";
 
   if (sharedWriteTimer) {
     clearTimeout(sharedWriteTimer);
     sharedWriteTimer = null;
+  }
+
+  if (pendingRemoteApplyTimer) {
+    clearTimeout(pendingRemoteApplyTimer);
+    pendingRemoteApplyTimer = null;
   }
 
   if (typeof sharedStateUnsubscribe === "function") {
@@ -930,6 +958,40 @@ function queueSharedStateWrite() {
   }, 350);
 }
 
+function isEditingInput() {
+  const active = document.activeElement;
+  return Boolean(active && active.matches && active.matches(EDITABLE_INPUT_SELECTOR));
+}
+
+function applyRemoteState(nextState, nextStateString) {
+  state = nextState;
+  lastSharedStateString = nextStateString;
+  localStorage.setItem(STORAGE_KEY, nextStateString);
+  renderAll();
+}
+
+function queuePendingRemoteApply() {
+  if (pendingRemoteApplyTimer) {
+    clearTimeout(pendingRemoteApplyTimer);
+  }
+
+  pendingRemoteApplyTimer = setTimeout(() => {
+    if (!pendingRemoteState) {
+      return;
+    }
+    if (isEditingInput()) {
+      queuePendingRemoteApply();
+      return;
+    }
+
+    applyRemoteState(pendingRemoteState, pendingRemoteStateString);
+    pendingRemoteState = null;
+    pendingRemoteStateString = "";
+    pendingRemoteApplyTimer = null;
+    setSyncStatus("Sync connected", "ok");
+  }, 600);
+}
+
 async function writeSharedState(force = false) {
   if (!sharedSyncReady || !firestoreApi || !sharedStateDocRef) {
     return;
@@ -942,7 +1004,6 @@ async function writeSharedState(force = false) {
   }
 
   state = normalized;
-  lastSharedStateString = payloadString;
 
   try {
     await firestoreApi.setDoc(
@@ -950,9 +1011,11 @@ async function writeSharedState(force = false) {
       {
         state: normalized,
         updatedAt: firestoreApi.serverTimestamp(),
+        updatedBySession: SESSION_ID,
       },
       { merge: true },
     );
+    lastSharedStateString = payloadString;
     setSyncStatus("Sync connected", "ok");
   } catch (error) {
     console.error("Failed to write shared state:", error);
