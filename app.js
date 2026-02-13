@@ -271,6 +271,7 @@ function renderAll() {
   appElements.itemFilterSelect.value = state.itemFilter;
   renderTasks();
   renderLists();
+  autoResizeTextarea(appElements.taskNoteInput);
 }
 
 function setActiveTab(tab, persist = true) {
@@ -307,6 +308,7 @@ function handleTaskCreate(event) {
 
   saveState();
   appElements.taskCreateForm.reset();
+  autoResizeTextarea(appElements.taskNoteInput);
   renderTasks();
 }
 
@@ -839,8 +841,22 @@ function autoResizeTextarea(element) {
     return;
   }
 
+  const style = window.getComputedStyle(element);
+  const lineHeight = Number.parseFloat(style.lineHeight);
+  const fontSize = Number.parseFloat(style.fontSize) || 16;
+  const resolvedLineHeight = Number.isFinite(lineHeight) ? lineHeight : fontSize * 1.2;
+  const rowsValue = Number.parseInt(element.getAttribute("rows") || "2", 10);
+  const rows = Number.isFinite(rowsValue) && rowsValue > 0 ? rowsValue : 2;
+  const paddingTop = Number.parseFloat(style.paddingTop) || 0;
+  const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
+  const borderTop = Number.parseFloat(style.borderTopWidth) || 0;
+  const borderBottom = Number.parseFloat(style.borderBottomWidth) || 0;
+  const minimumHeight = Math.ceil(
+    resolvedLineHeight * rows + paddingTop + paddingBottom + borderTop + borderBottom,
+  );
+
   element.style.height = "auto";
-  element.style.height = `${element.scrollHeight}px`;
+  element.style.height = `${Math.max(element.scrollHeight, minimumHeight)}px`;
 }
 
 function resizeAutoGrowTextareas(root) {
@@ -1152,6 +1168,12 @@ function setSignedInState(user) {
     setSyncStatus("Sync connecting...", "warn");
   }
   appElements.logoutBtn.hidden = false;
+
+  requestAnimationFrame(() => {
+    autoResizeTextarea(appElements.taskNoteInput);
+    resizeAutoGrowTextareas(appElements.taskList);
+    resizeAutoGrowTextareas(appElements.listsContainer);
+  });
 }
 
 function setSyncStatus(message, tone) {
