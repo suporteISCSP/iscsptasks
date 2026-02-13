@@ -13,11 +13,13 @@ Single-page app with:
 
 1. Create a Firebase project.
 2. In Firebase Console -> Authentication -> Sign-in method, enable **Email/Password**.
-3. In Authentication -> Settings -> Authorized domains, ensure:
+3. Create user accounts in Firebase Console -> Authentication -> Users.
+   The app itself does not provide self-signup.
+4. In Authentication -> Settings -> Authorized domains, ensure:
    - `localhost`
    - `<your-username>.github.io`
-4. Edit `firebase-config.js` (or copy `firebase-config.sample.js` over it).
-5. Fill it with your real Firebase values (`apiKey`, `authDomain`, `projectId`, `appId`).
+5. Edit `firebase-config.js` (or copy `firebase-config.sample.js` over it).
+6. Fill it with your real Firebase values (`apiKey`, `authDomain`, `projectId`, `appId`).
 
 ## 2) Configure Cloud Firestore (Shared Data)
 

@@ -25,7 +25,6 @@ const appElements = {
   authEmailInput: document.getElementById("authEmailInput"),
   authPasswordInput: document.getElementById("authPasswordInput"),
   authLoginBtn: document.getElementById("authLoginBtn"),
-  authRegisterBtn: document.getElementById("authRegisterBtn"),
   userLabel: document.getElementById("userLabel"),
   syncStatus: document.getElementById("syncStatus"),
   logoutBtn: document.getElementById("logoutBtn"),
@@ -204,7 +203,6 @@ function setupEventHandlers() {
   appElements.listsContainer.addEventListener("input", handleListContainerInput);
 
   appElements.authForm.addEventListener("submit", handleAuthSignIn);
-  appElements.authRegisterBtn.addEventListener("click", handleAuthRegister);
   appElements.logoutBtn.addEventListener("click", handleAuthSignOut);
 }
 
@@ -225,29 +223,6 @@ async function handleAuthSignIn(event) {
   setAuthFormBusy(true);
   try {
     await firebaseAuthApi.signInWithEmailAndPassword(firebaseAuth, email, password);
-  } catch (error) {
-    setSignedOutState(formatFirebaseAuthError(error), true);
-  } finally {
-    setAuthFormBusy(false);
-  }
-}
-
-async function handleAuthRegister() {
-  if (!firebaseAuthReady || !firebaseAuth || !firebaseAuthApi) {
-    setSignedOutState("Firebase is still loading. Please wait a moment.", false);
-    return;
-  }
-
-  const email = appElements.authEmailInput.value.trim();
-  const password = appElements.authPasswordInput.value;
-  if (!email || !password) {
-    setSignedOutState("Enter email and password to create an account.", true);
-    return;
-  }
-
-  setAuthFormBusy(true);
-  try {
-    await firebaseAuthApi.createUserWithEmailAndPassword(firebaseAuth, email, password);
   } catch (error) {
     setSignedOutState(formatFirebaseAuthError(error), true);
   } finally {
@@ -808,7 +783,6 @@ async function initAuth() {
         getAuth,
         onAuthStateChanged,
         signInWithEmailAndPassword,
-        createUserWithEmailAndPassword,
         signOut,
       },
       { getFirestore, doc, onSnapshot, setDoc, serverTimestamp },
@@ -823,7 +797,6 @@ async function initAuth() {
     firestoreDb = getFirestore(firebaseApp);
     firebaseAuthApi = {
       signInWithEmailAndPassword,
-      createUserWithEmailAndPassword,
       signOut,
     };
     firestoreApi = {
@@ -1024,7 +997,6 @@ function setAuthFormBusy(isBusy) {
   appElements.authEmailInput.disabled = isBusy;
   appElements.authPasswordInput.disabled = isBusy;
   appElements.authLoginBtn.disabled = isBusy;
-  appElements.authRegisterBtn.disabled = isBusy;
 }
 
 function formatFirebaseAuthError(error) {
