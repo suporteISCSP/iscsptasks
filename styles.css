@@ -398,7 +398,7 @@ textarea:focus {
 
 .inline-form {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(160px, 1fr) minmax(180px, 1fr) auto;
   gap: 10px;
   margin: 12px 0;
 }

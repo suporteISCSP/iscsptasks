@@ -495,7 +495,9 @@ function handleListContainerSubmit(event) {
   event.preventDefault();
   const listId = event.target.dataset.listId;
   const input = event.target.querySelector(".item-name-input");
+  const noteInput = event.target.querySelector(".item-note-create-input");
   const value = input ? input.value.trim() : "";
+  const note = noteInput ? noteInput.value.trim() : "";
   if (!value) {
     return;
   }
@@ -508,7 +510,7 @@ function handleListContainerSubmit(event) {
   list.items.push({
     id: uid(),
     label: value,
-    note: "",
+    note,
     checked: false,
     createdAt: Date.now(),
   });
@@ -718,6 +720,11 @@ function renderLists() {
               : `
           <form class="item-create-form inline-form" data-list-id="${list.id}">
             <input class="item-name-input" type="text" placeholder="Add item..." required />
+            <input
+              class="item-note-create-input"
+              type="text"
+              placeholder="Initial note (optional)"
+            />
             <button class="btn btn-primary" type="submit">Add Item</button>
           </form>
 
