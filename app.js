@@ -896,7 +896,7 @@ async function initAuth() {
       }
 
       stopSharedStateSync();
-      setSignedOutState("Sign in with your Firebase account to access Tasks and Lists.", true);
+      setSignedOutState("", true);
     });
   } catch (error) {
     console.error("Firebase auth initialization failed:", error);
