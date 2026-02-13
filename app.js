@@ -27,6 +27,7 @@ const appElements = {
   authLoginBtn: document.getElementById("authLoginBtn"),
   authRegisterBtn: document.getElementById("authRegisterBtn"),
   userLabel: document.getElementById("userLabel"),
+  syncStatus: document.getElementById("syncStatus"),
   logoutBtn: document.getElementById("logoutBtn"),
   tabButtons: Array.from(document.querySelectorAll(".tab-btn")),
   tasksTab: document.getElementById("tasksTab"),
@@ -54,6 +55,7 @@ let sharedStateUnsubscribe = null;
 let sharedSyncReady = false;
 let sharedWriteTimer = null;
 let lastSharedStateString = "";
+let firstSnapshotLoaded = false;
 
 setupEventHandlers();
 renderAll();
@@ -723,9 +725,13 @@ async function initAuth() {
 
     onAuthStateChanged(firebaseAuth, async (user) => {
       if (user) {
-        await startSharedStateSync();
+        const syncStarted = await startSharedStateSync();
         setSignedInState(user);
         appElements.authForm.reset();
+
+        if (!syncStarted) {
+          setSyncStatus("Sync offline", "warn");
+        }
         return;
       }
 
@@ -740,47 +746,74 @@ async function initAuth() {
 
 async function startSharedStateSync() {
   if (!firestoreApi || !sharedStateDocRef) {
-    return;
+    return false;
   }
 
   stopSharedStateSync();
   sharedSyncReady = true;
   lastSharedStateString = "";
+  firstSnapshotLoaded = false;
+  setSyncStatus("Sync connecting...", "warn");
 
-  sharedStateUnsubscribe = firestoreApi.onSnapshot(
-    sharedStateDocRef,
-    async (snapshot) => {
-      if (!snapshot.exists()) {
-        await writeSharedState(true);
+  return new Promise((resolve) => {
+    let resolved = false;
+
+    sharedStateUnsubscribe = firestoreApi.onSnapshot(
+      sharedStateDocRef,
+      async (snapshot) => {
+        if (!snapshot.exists()) {
+          await writeSharedState(true);
+        } else {
+          const raw = snapshot.data()?.state;
+          const remoteState = normalizeState(raw);
+          const remoteStateString = JSON.stringify(remoteState);
+          const currentStateString = JSON.stringify(normalizeState(state));
+          if (remoteStateString !== currentStateString) {
+            state = remoteState;
+            lastSharedStateString = remoteStateString;
+            localStorage.setItem(STORAGE_KEY, remoteStateString);
+            renderAll();
+          } else {
+            lastSharedStateString = remoteStateString;
+          }
+        }
+
+        setSyncStatus("Sync connected", "ok");
+        firstSnapshotLoaded = true;
+
+        if (!resolved) {
+          resolved = true;
+          resolve(true);
+        }
+      },
+      (error) => {
+        console.error("Shared state sync failed:", error);
+        sharedSyncReady = false;
+        const message = formatFirestoreError(error);
+        setSyncStatus(message, "error");
+
+        if (!resolved) {
+          resolved = true;
+          resolve(false);
+        }
+      },
+    );
+
+    setTimeout(() => {
+      if (resolved || firstSnapshotLoaded) {
         return;
       }
-
-      const raw = snapshot.data()?.state;
-      const remoteState = normalizeState(raw);
-      const remoteStateString = JSON.stringify(remoteState);
-      const currentStateString = JSON.stringify(normalizeState(state));
-      if (remoteStateString === currentStateString) {
-        lastSharedStateString = remoteStateString;
-        return;
-      }
-
-      state = remoteState;
-      lastSharedStateString = remoteStateString;
-      localStorage.setItem(STORAGE_KEY, remoteStateString);
-      renderAll();
-    },
-    (error) => {
-      console.error("Shared state sync failed:", error);
-      setSignedOutState(
-        "Connected, but shared data sync failed. Check Firestore rules and reload.",
-        false,
-      );
-    },
-  );
+      setSyncStatus("Sync timeout", "warn");
+      resolved = true;
+      resolve(false);
+    }, 10000);
+  });
 }
 
 function stopSharedStateSync() {
   sharedSyncReady = false;
+  firstSnapshotLoaded = false;
+  lastSharedStateString = "";
 
   if (sharedWriteTimer) {
     clearTimeout(sharedWriteTimer);
@@ -830,8 +863,10 @@ async function writeSharedState(force = false) {
       },
       { merge: true },
     );
+    setSyncStatus("Sync connected", "ok");
   } catch (error) {
     console.error("Failed to write shared state:", error);
+    setSyncStatus(formatFirestoreError(error), "error");
   }
 }
 
@@ -841,6 +876,7 @@ function setSignedOutState(message, showForm) {
   appElements.authStatusText.textContent = message;
   appElements.authForm.hidden = !showForm;
   appElements.userLabel.textContent = "";
+  setSyncStatus("", "");
   appElements.logoutBtn.hidden = true;
 }
 
@@ -848,7 +884,23 @@ function setSignedInState(user) {
   appElements.app.hidden = false;
   appElements.authMessage.hidden = true;
   appElements.userLabel.textContent = user?.displayName || user?.email || "Authenticated user";
+  if (!appElements.syncStatus.textContent) {
+    setSyncStatus("Sync connecting...", "warn");
+  }
   appElements.logoutBtn.hidden = false;
+}
+
+function setSyncStatus(message, tone) {
+  if (!appElements.syncStatus) {
+    return;
+  }
+
+  appElements.syncStatus.textContent = message;
+  appElements.syncStatus.hidden = !message;
+  appElements.syncStatus.classList.remove("ok", "warn", "error");
+  if (tone === "ok" || tone === "warn" || tone === "error") {
+    appElements.syncStatus.classList.add(tone);
+  }
 }
 
 function setAuthFormBusy(isBusy) {
@@ -878,5 +930,20 @@ function formatFirebaseAuthError(error) {
       return "Network error. Check your connection and try again.";
     default:
       return "Authentication failed. Please try again.";
+  }
+}
+
+function formatFirestoreError(error) {
+  const code = String(error?.code || "");
+
+  switch (code) {
+    case "permission-denied":
+      return "Sync denied (check Firestore rules)";
+    case "unavailable":
+      return "Sync unavailable";
+    case "not-found":
+      return "Sync path not found";
+    default:
+      return "Sync error";
   }
 }

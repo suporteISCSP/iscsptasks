@@ -69,3 +69,4 @@ This repository includes `.github/workflows/deploy-pages.yml` for zero-build sta
   - `Unresolved` = red
   - `In progress` = yellow
 - All authenticated accounts share one common dataset (`shared/globalState`) across devices.
+- Header shows sync health (`Sync connected`, `Sync denied`, `Sync timeout`) to diagnose Firestore issues quickly.
