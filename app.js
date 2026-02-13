@@ -348,15 +348,35 @@ function handleTaskListChange(event) {
       return;
     }
 
-    task.title = nextTitle;
-    task.updatedAt = Date.now();
-    saveState();
+    if (task.title !== nextTitle) {
+      task.title = nextTitle;
+      task.updatedAt = Date.now();
+      saveState();
+    }
     renderTasks();
   }
 }
 
 function handleTaskListInput(event) {
   const target = event.target;
+
+  if (target.matches(".task-title-input")) {
+    const taskId = target.dataset.taskId;
+    const task = state.tasks.find((entry) => entry.id === taskId);
+    if (!task) {
+      return;
+    }
+
+    const nextTitle = target.value.trim();
+    if (!nextTitle) {
+      return;
+    }
+
+    task.title = nextTitle;
+    task.updatedAt = Date.now();
+    saveState();
+    return;
+  }
 
   if (target.matches(".task-note-input")) {
     const taskId = target.dataset.taskId;
