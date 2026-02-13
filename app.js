@@ -348,12 +348,20 @@ function handleTaskListChange(event) {
       return;
     }
 
-    if (task.title !== nextTitle) {
-      task.title = nextTitle;
-      task.updatedAt = Date.now();
-      saveState();
+    if (task.title === nextTitle) {
+      return;
     }
-    renderTasks();
+
+    task.title = nextTitle;
+    task.updatedAt = Date.now();
+    saveState();
+
+    const display = target
+      .closest(".task-card")
+      ?.querySelector(".task-title-display");
+    if (display) {
+      display.textContent = nextTitle;
+    }
   }
 }
 
@@ -375,6 +383,13 @@ function handleTaskListInput(event) {
     task.title = nextTitle;
     task.updatedAt = Date.now();
     saveState();
+
+    const display = target
+      .closest(".task-card")
+      ?.querySelector(".task-title-display");
+    if (display) {
+      display.textContent = nextTitle;
+    }
     return;
   }
 
@@ -434,6 +449,12 @@ function renderTasks() {
       return `
         <article class="task-card">
           <div class="task-head">
+            <h3 class="task-title-display">${escapeHtml(task.title)}</h3>
+            <span class="status-pill ${meta.className}">${meta.label}</span>
+          </div>
+
+          <label class="field">
+            <span>Title</span>
             <input
               class="task-title-input"
               data-task-id="${task.id}"
@@ -441,8 +462,7 @@ function renderTasks() {
               value="${escapeHtml(task.title)}"
               aria-label="Task title"
             />
-            <span class="status-pill ${meta.className}">${meta.label}</span>
-          </div>
+          </label>
 
           <div class="task-controls">
             <label class="field compact">
