@@ -1,5 +1,7 @@
 const STORAGE_KEY = "iscsp_tasks_state_v1";
 const FIREBASE_SDK_VERSION = "10.13.2";
+const SHARED_STATE_COLLECTION = "shared";
+const SHARED_STATE_DOCUMENT = "globalState";
 
 const STATUS_META = {
   todo: { label: "To do", className: "status-todo" },
@@ -45,6 +47,13 @@ let state = loadState();
 let firebaseAuth = null;
 let firebaseAuthApi = null;
 let firebaseAuthReady = false;
+let firestoreDb = null;
+let firestoreApi = null;
+let sharedStateDocRef = null;
+let sharedStateUnsubscribe = null;
+let sharedSyncReady = false;
+let sharedWriteTimer = null;
+let lastSharedStateString = "";
 
 setupEventHandlers();
 renderAll();
@@ -61,29 +70,102 @@ function getInitialState() {
   };
 }
 
+function normalizeState(candidate) {
+  const source = candidate && typeof candidate === "object" ? candidate : {};
+
+  return {
+    ...getInitialState(),
+    activeTab: source.activeTab === "lists" ? "lists" : "tasks",
+    taskFilter: normalizeTaskFilter(source.taskFilter),
+    taskSort: normalizeTaskSort(source.taskSort),
+    itemFilter: normalizeItemFilter(source.itemFilter),
+    tasks: normalizeTasks(source.tasks),
+    lists: normalizeLists(source.lists),
+  };
+}
+
+function normalizeTaskFilter(value) {
+  const allowed = ["all", "todo", "in_progress", "unresolved", "resolved"];
+  return allowed.includes(value) ? value : "all";
+}
+
+function normalizeTaskSort(value) {
+  const allowed = ["newest", "oldest", "title", "status"];
+  return allowed.includes(value) ? value : "newest";
+}
+
+function normalizeItemFilter(value) {
+  const allowed = ["all", "checked", "unchecked"];
+  return allowed.includes(value) ? value : "all";
+}
+
+function normalizeTasks(tasks) {
+  if (!Array.isArray(tasks)) {
+    return [];
+  }
+
+  return tasks
+    .map((task) => ({
+      id: typeof task?.id === "string" ? task.id : uid(),
+      title: typeof task?.title === "string" ? task.title : "",
+      note: typeof task?.note === "string" ? task.note : "",
+      status: STATUS_META[task?.status] ? task.status : "todo",
+      createdAt: Number.isFinite(Number(task?.createdAt)) ? Number(task.createdAt) : Date.now(),
+      updatedAt: Number.isFinite(Number(task?.updatedAt)) ? Number(task.updatedAt) : Date.now(),
+    }))
+    .filter((task) => task.title.trim().length > 0);
+}
+
+function normalizeLists(lists) {
+  if (!Array.isArray(lists)) {
+    return [];
+  }
+
+  return lists
+    .map((list) => ({
+      id: typeof list?.id === "string" ? list.id : uid(),
+      name: typeof list?.name === "string" ? list.name : "",
+      createdAt: Number.isFinite(Number(list?.createdAt)) ? Number(list.createdAt) : Date.now(),
+      items: normalizeItems(list?.items),
+    }))
+    .filter((list) => list.name.trim().length > 0);
+}
+
+function normalizeItems(items) {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .map((item) => ({
+      id: typeof item?.id === "string" ? item.id : uid(),
+      label: typeof item?.label === "string" ? item.label : "",
+      note: typeof item?.note === "string" ? item.note : "",
+      checked: Boolean(item?.checked),
+      createdAt: Number.isFinite(Number(item?.createdAt)) ? Number(item.createdAt) : Date.now(),
+    }))
+    .filter((item) => item.label.trim().length > 0);
+}
+
 function loadState() {
-  const fallback = getInitialState();
   const raw = localStorage.getItem(STORAGE_KEY);
 
   if (!raw) {
-    return fallback;
+    return getInitialState();
   }
 
   try {
     const parsed = JSON.parse(raw);
-    return {
-      ...fallback,
-      ...parsed,
-      tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
-      lists: Array.isArray(parsed.lists) ? parsed.lists : [],
-    };
+    return normalizeState(parsed);
   } catch {
-    return fallback;
+    return getInitialState();
   }
 }
 
 function saveState() {
+  state = normalizeState(state);
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  queueSharedStateWrite();
 }
 
 function setupEventHandlers() {
@@ -175,6 +257,8 @@ async function handleAuthSignOut() {
   if (!firebaseAuthReady || !firebaseAuth || !firebaseAuthApi) {
     return;
   }
+
+  stopSharedStateSync();
 
   try {
     await firebaseAuthApi.signOut(firebaseAuth);
@@ -608,33 +692,146 @@ async function initAuth() {
         createUserWithEmailAndPassword,
         signOut,
       },
+      { getFirestore, doc, onSnapshot, setDoc, serverTimestamp },
     ] = await Promise.all([
       import(`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-app.js`),
       import(`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-auth.js`),
+      import(`https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}/firebase-firestore.js`),
     ]);
 
     const firebaseApp = initializeApp(config);
     firebaseAuth = getAuth(firebaseApp);
+    firestoreDb = getFirestore(firebaseApp);
     firebaseAuthApi = {
       signInWithEmailAndPassword,
       createUserWithEmailAndPassword,
       signOut,
     };
+    firestoreApi = {
+      doc,
+      onSnapshot,
+      setDoc,
+      serverTimestamp,
+    };
+    sharedStateDocRef = firestoreApi.doc(
+      firestoreDb,
+      SHARED_STATE_COLLECTION,
+      SHARED_STATE_DOCUMENT,
+    );
     firebaseAuthReady = true;
     setAuthFormBusy(false);
 
-    onAuthStateChanged(firebaseAuth, (user) => {
+    onAuthStateChanged(firebaseAuth, async (user) => {
       if (user) {
+        await startSharedStateSync();
         setSignedInState(user);
         appElements.authForm.reset();
         return;
       }
 
+      stopSharedStateSync();
       setSignedOutState("Sign in with your Firebase account to access Tasks and Lists.", true);
     });
   } catch (error) {
     console.error("Firebase auth initialization failed:", error);
     setSignedOutState("Failed to initialize Firebase authentication.", false);
+  }
+}
+
+async function startSharedStateSync() {
+  if (!firestoreApi || !sharedStateDocRef) {
+    return;
+  }
+
+  stopSharedStateSync();
+  sharedSyncReady = true;
+  lastSharedStateString = "";
+
+  sharedStateUnsubscribe = firestoreApi.onSnapshot(
+    sharedStateDocRef,
+    async (snapshot) => {
+      if (!snapshot.exists()) {
+        await writeSharedState(true);
+        return;
+      }
+
+      const raw = snapshot.data()?.state;
+      const remoteState = normalizeState(raw);
+      const remoteStateString = JSON.stringify(remoteState);
+      const currentStateString = JSON.stringify(normalizeState(state));
+      if (remoteStateString === currentStateString) {
+        lastSharedStateString = remoteStateString;
+        return;
+      }
+
+      state = remoteState;
+      lastSharedStateString = remoteStateString;
+      localStorage.setItem(STORAGE_KEY, remoteStateString);
+      renderAll();
+    },
+    (error) => {
+      console.error("Shared state sync failed:", error);
+      setSignedOutState(
+        "Connected, but shared data sync failed. Check Firestore rules and reload.",
+        false,
+      );
+    },
+  );
+}
+
+function stopSharedStateSync() {
+  sharedSyncReady = false;
+
+  if (sharedWriteTimer) {
+    clearTimeout(sharedWriteTimer);
+    sharedWriteTimer = null;
+  }
+
+  if (typeof sharedStateUnsubscribe === "function") {
+    sharedStateUnsubscribe();
+    sharedStateUnsubscribe = null;
+  }
+}
+
+function queueSharedStateWrite() {
+  if (!sharedSyncReady || !firestoreApi || !sharedStateDocRef) {
+    return;
+  }
+
+  if (sharedWriteTimer) {
+    clearTimeout(sharedWriteTimer);
+  }
+
+  sharedWriteTimer = setTimeout(() => {
+    writeSharedState();
+  }, 350);
+}
+
+async function writeSharedState(force = false) {
+  if (!sharedSyncReady || !firestoreApi || !sharedStateDocRef) {
+    return;
+  }
+
+  const normalized = normalizeState(state);
+  const payloadString = JSON.stringify(normalized);
+  if (!force && payloadString === lastSharedStateString) {
+    return;
+  }
+
+  state = normalized;
+  lastSharedStateString = payloadString;
+
+  try {
+    await firestoreApi.setDoc(
+      sharedStateDocRef,
+      {
+        state: normalized,
+        updatedAt: firestoreApi.serverTimestamp(),
+      },
+      { merge: true },
+    );
+  } catch (error) {
+    console.error("Failed to write shared state:", error);
   }
 }
 
