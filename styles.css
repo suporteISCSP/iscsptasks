@@ -300,6 +300,19 @@ textarea:focus {
   overflow-wrap: anywhere;
 }
 
+.task-title-input {
+  font-size: 1.1rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 6px 8px;
+}
+
+.task-title-input:focus {
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.96);
+}
+
 .task-controls {
   margin: 10px 0;
 }

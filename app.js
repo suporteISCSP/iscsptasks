@@ -332,6 +332,26 @@ function handleTaskListChange(event) {
   if (target.matches(".task-status-select")) {
     const taskId = target.dataset.taskId;
     updateTask(taskId, { status: target.value, updatedAt: Date.now() });
+    return;
+  }
+
+  if (target.matches(".task-title-input")) {
+    const taskId = target.dataset.taskId;
+    const task = state.tasks.find((entry) => entry.id === taskId);
+    if (!task) {
+      return;
+    }
+
+    const nextTitle = target.value.trim();
+    if (!nextTitle) {
+      target.value = task.title;
+      return;
+    }
+
+    task.title = nextTitle;
+    task.updatedAt = Date.now();
+    saveState();
+    renderTasks();
   }
 }
 
@@ -394,7 +414,13 @@ function renderTasks() {
       return `
         <article class="task-card">
           <div class="task-head">
-            <h3>${escapeHtml(task.title)}</h3>
+            <input
+              class="task-title-input"
+              data-task-id="${task.id}"
+              type="text"
+              value="${escapeHtml(task.title)}"
+              aria-label="Task title"
+            />
             <span class="status-pill ${meta.className}">${meta.label}</span>
           </div>
 
