@@ -72,3 +72,4 @@ This repository includes `.github/workflows/deploy-pages.yml` for zero-build sta
   - `In progress` = yellow
 - All authenticated accounts share one common dataset (`shared/globalState`) across devices.
 - Header shows sync health (`Sync connected`, `Sync denied`, `Sync timeout`) to diagnose Firestore issues quickly.
+- UI state (`Tasks/Lists` tab, filters, expanded lists) is local per device and is not shared.

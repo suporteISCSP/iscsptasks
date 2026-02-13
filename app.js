@@ -92,6 +92,14 @@ function normalizeState(candidate) {
   };
 }
 
+function normalizeSharedState(candidate) {
+  const source = candidate && typeof candidate === "object" ? candidate : {};
+  return {
+    tasks: normalizeTasks(source.tasks),
+    lists: normalizeLists(source.lists),
+  };
+}
+
 function normalizeTaskFilter(value) {
   const allowed = ["all", "todo", "in_progress", "unresolved", "resolved"];
   return allowed.includes(value) ? value : "all";
@@ -919,23 +927,28 @@ async function startSharedStateSync() {
           await writeSharedState(true);
         } else {
           const snapshotData = snapshot.data() || {};
-          const remoteState = normalizeState(snapshotData.state);
-          const remoteStateString = JSON.stringify(remoteState);
+          if (!snapshotData.state || typeof snapshotData.state !== "object") {
+            await writeSharedState(true);
+            return;
+          }
+
+          const remoteSharedState = normalizeSharedState(snapshotData.state);
+          const remoteStateString = JSON.stringify(remoteSharedState);
           const fromThisSession = snapshotData.updatedBySession === SESSION_ID;
 
           if (fromThisSession) {
             // Ignore our own echoed writes to prevent cursor jumps while typing.
             lastSharedStateString = remoteStateString;
           } else {
-            const currentStateString = JSON.stringify(normalizeState(state));
+            const currentStateString = JSON.stringify(normalizeSharedState(state));
             if (remoteStateString !== currentStateString) {
               if (isEditingInput()) {
-                pendingRemoteState = remoteState;
+                pendingRemoteState = remoteSharedState;
                 pendingRemoteStateString = remoteStateString;
                 queuePendingRemoteApply();
                 setSyncStatus("Sync pending...", "warn");
               } else {
-                applyRemoteState(remoteState, remoteStateString);
+                applyRemoteState(remoteSharedState, remoteStateString);
               }
             } else {
               lastSharedStateString = remoteStateString;
@@ -1019,10 +1032,17 @@ function isEditingInput() {
   return Boolean(active && active.matches && active.matches(EDITABLE_INPUT_SELECTOR));
 }
 
-function applyRemoteState(nextState, nextStateString) {
-  state = nextState;
+function applyRemoteState(nextSharedState, nextStateString) {
+  const normalizedLocalState = normalizeState(state);
+  const normalizedSharedState = normalizeSharedState(nextSharedState);
+
+  state = {
+    ...normalizedLocalState,
+    tasks: normalizedSharedState.tasks,
+    lists: normalizedSharedState.lists,
+  };
   lastSharedStateString = nextStateString;
-  localStorage.setItem(STORAGE_KEY, nextStateString);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   renderAll();
 }
 
@@ -1053,19 +1073,20 @@ async function writeSharedState(force = false) {
     return;
   }
 
-  const normalized = normalizeState(state);
-  const payloadString = JSON.stringify(normalized);
+  const normalizedLocalState = normalizeState(state);
+  const sharedPayload = normalizeSharedState(normalizedLocalState);
+  const payloadString = JSON.stringify(sharedPayload);
   if (!force && payloadString === lastSharedStateString) {
     return;
   }
 
-  state = normalized;
+  state = normalizedLocalState;
 
   try {
     await firestoreApi.setDoc(
       sharedStateDocRef,
       {
-        state: normalized,
+        state: sharedPayload,
         updatedAt: firestoreApi.serverTimestamp(),
         updatedBySession: SESSION_ID,
       },
