@@ -4,7 +4,7 @@ const SHARED_STATE_COLLECTION = "shared";
 const SHARED_STATE_DOCUMENT = "globalState";
 const SESSION_ID = uid();
 const EDITABLE_INPUT_SELECTOR =
-  ".task-title-input, .task-note-input, .list-title-input, .item-title-input, .item-note-input, .item-name-input, #taskTitleInput, #taskNoteInput, #listNameInput, #authEmailInput, #authPasswordInput";
+  ".task-title-input, .task-note-input, .list-title-input, .item-title-input, .item-note-input, .item-note-create-input, .item-name-input, #taskTitleInput, #taskNoteInput, #listNameInput, #authEmailInput, #authPasswordInput";
 
 const STATUS_META = {
   todo: { label: "To do", className: "status-todo" },
@@ -219,6 +219,11 @@ function setupEventHandlers() {
 
   appElements.authForm.addEventListener("submit", handleAuthSignIn);
   appElements.logoutBtn.addEventListener("click", handleAuthSignOut);
+  appElements.taskNoteInput.addEventListener("input", (event) => {
+    autoResizeTextarea(event.target);
+  });
+
+  resizeAutoGrowTextareas(document);
 }
 
 async function handleAuthSignIn(event) {
@@ -376,6 +381,7 @@ function handleTaskListInput(event) {
       return;
     }
 
+    autoResizeTextarea(target);
     task.note = target.value;
     task.updatedAt = Date.now();
     saveState();
@@ -450,7 +456,7 @@ function renderTasks() {
           <label class="field">
             <span>Note</span>
             <textarea
-              class="task-note-input"
+              class="task-note-input auto-grow"
               data-task-id="${task.id}"
               rows="3"
               placeholder="Add details..."
@@ -462,6 +468,8 @@ function renderTasks() {
       `;
     })
     .join("");
+
+  resizeAutoGrowTextareas(appElements.taskList);
 }
 
 function renderStatusOptions(selected) {
@@ -666,8 +674,14 @@ function handleListContainerInput(event) {
       return;
     }
 
+    autoResizeTextarea(target);
     item.note = target.value;
     saveState();
+    return;
+  }
+
+  if (target.matches(".item-note-create-input")) {
+    autoResizeTextarea(target);
   }
 }
 
@@ -728,11 +742,11 @@ function renderLists() {
               : `
           <form class="item-create-form inline-form" data-list-id="${list.id}">
             <input class="item-name-input" type="text" placeholder="Add item..." required />
-            <input
-              class="item-note-create-input"
-              type="text"
+            <textarea
+              class="item-note-create-input auto-grow"
+              rows="2"
               placeholder="Initial note (optional)"
-            />
+            ></textarea>
             <button class="btn btn-primary" type="submit">Add Item</button>
           </form>
 
@@ -759,14 +773,13 @@ function renderLists() {
                     value="${escapeHtml(item.label)}"
                     aria-label="Item title"
                   />
-                  <input
-                    class="item-note-input"
-                    type="text"
+                  <textarea
+                    class="item-note-input auto-grow"
                     data-list-id="${list.id}"
                     data-item-id="${item.id}"
-                    value="${escapeHtml(item.note)}"
+                    rows="2"
                     placeholder="Note"
-                  />
+                  >${escapeHtml(item.note || "")}</textarea>
                   <button
                     class="btn btn-ghost item-delete-btn"
                     type="button"
@@ -787,6 +800,8 @@ function renderLists() {
       `;
     })
     .join("");
+
+  resizeAutoGrowTextareas(appElements.listsContainer);
 }
 
 function toggleListExpanded(listId) {
@@ -817,6 +832,25 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function autoResizeTextarea(element) {
+  if (!element || element.tagName !== "TEXTAREA") {
+    return;
+  }
+
+  element.style.height = "auto";
+  element.style.height = `${element.scrollHeight}px`;
+}
+
+function resizeAutoGrowTextareas(root) {
+  if (!root || !root.querySelectorAll) {
+    return;
+  }
+
+  root.querySelectorAll("textarea.auto-grow").forEach((textarea) => {
+    autoResizeTextarea(textarea);
+  });
 }
 
 async function initAuth() {

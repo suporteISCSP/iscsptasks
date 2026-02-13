@@ -255,6 +255,12 @@ textarea {
   resize: vertical;
 }
 
+textarea.auto-grow {
+  resize: none;
+  overflow-y: hidden;
+  overflow-x: hidden;
+}
+
 input:focus,
 select:focus,
 textarea:focus {
@@ -415,7 +421,7 @@ textarea:focus {
   display: grid;
   grid-template-columns: auto minmax(180px, 1.1fr) minmax(140px, 1fr) auto;
   gap: 8px;
-  align-items: center;
+  align-items: start;
 }
 
 .item-row.checked {
@@ -425,6 +431,11 @@ textarea:focus {
 .item-check {
   width: 18px;
   height: 18px;
+  margin-top: 10px;
+}
+
+.item-note-input {
+  min-height: 42px;
 }
 
 .empty-state {
