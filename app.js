@@ -61,6 +61,7 @@ let firstSnapshotLoaded = false;
 let pendingRemoteState = null;
 let pendingRemoteStateString = "";
 let pendingRemoteApplyTimer = null;
+let expandedListIds = new Set();
 
 setupEventHandlers();
 renderAll();
@@ -471,12 +472,15 @@ function handleListCreate(event) {
     return;
   }
 
-  state.lists.unshift({
+  const newList = {
     id: uid(),
     name,
     items: [],
     createdAt: Date.now(),
-  });
+  };
+
+  state.lists.unshift(newList);
+  expandedListIds.add(newList.id);
 
   saveState();
   appElements.listCreateForm.reset();
@@ -516,9 +520,24 @@ function handleListContainerSubmit(event) {
 
 function handleListContainerClick(event) {
   const target = event.target;
+  if (target.matches(".list-toggle-btn")) {
+    toggleListExpanded(target.dataset.listId);
+    return;
+  }
+
+  const listHead = target.closest(".list-head");
+  if (
+    listHead &&
+    !target.closest("button, input, select, textarea, label")
+  ) {
+    toggleListExpanded(listHead.dataset.listId);
+    return;
+  }
+
   if (target.matches(".list-delete-btn")) {
     const listId = target.dataset.listId;
     state.lists = state.lists.filter((entry) => entry.id !== listId);
+    expandedListIds.delete(listId);
     saveState();
     renderLists();
     return;
@@ -656,8 +675,12 @@ function renderLists() {
     return;
   }
 
+  const validIds = new Set(state.lists.map((list) => list.id));
+  expandedListIds = new Set([...expandedListIds].filter((id) => validIds.has(id)));
+
   appElements.listsContainer.innerHTML = state.lists
     .map((list) => {
+      const isExpanded = expandedListIds.has(list.id);
       const visibleItems = list.items.filter((item) => {
         if (state.itemFilter === "checked") {
           return item.checked;
@@ -670,7 +693,7 @@ function renderLists() {
 
       return `
         <article class="list-card">
-          <div class="list-head">
+          <div class="list-head" data-list-id="${list.id}">
             <input
               class="list-title-input"
               type="text"
@@ -678,11 +701,21 @@ function renderLists() {
               value="${escapeHtml(list.name)}"
               aria-label="List title"
             />
-            <button class="btn btn-ghost list-delete-btn" data-list-id="${list.id}" type="button">
-              Delete List
-            </button>
+            <div class="list-actions">
+              <span class="list-count">${list.items.length} item${list.items.length === 1 ? "" : "s"}</span>
+              <button class="btn btn-ghost list-toggle-btn" data-list-id="${list.id}" type="button">
+                ${isExpanded ? "Hide Items" : "Show Items"}
+              </button>
+              <button class="btn btn-ghost list-delete-btn" data-list-id="${list.id}" type="button">
+                Delete List
+              </button>
+            </div>
           </div>
 
+          ${
+            !isExpanded
+              ? `<p class="list-collapsed-hint">Click this list to show items.</p>`
+              : `
           <form class="item-create-form inline-form" data-list-id="${list.id}">
             <input class="item-name-input" type="text" placeholder="Add item..." required />
             <button class="btn btn-primary" type="submit">Add Item</button>
@@ -733,10 +766,26 @@ function renderLists() {
                     .join("")
             }
           </div>
+          `
+          }
         </article>
       `;
     })
     .join("");
+}
+
+function toggleListExpanded(listId) {
+  if (!listId) {
+    return;
+  }
+
+  if (expandedListIds.has(listId)) {
+    expandedListIds.delete(listId);
+  } else {
+    expandedListIds.add(listId);
+  }
+
+  renderLists();
 }
 
 function uid() {
