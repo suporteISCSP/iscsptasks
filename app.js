@@ -579,6 +579,35 @@ function handleListContainerClick(event) {
 function handleListContainerChange(event) {
   const target = event.target;
 
+  if (target.matches(".list-title-input")) {
+    const listId = target.dataset.listId;
+    const list = state.lists.find((entry) => entry.id === listId);
+    if (!list) {
+      return;
+    }
+
+    const nextName = target.value.trim();
+    if (!nextName) {
+      target.value = list.name;
+      return;
+    }
+
+    if (list.name === nextName) {
+      return;
+    }
+
+    list.name = nextName;
+    saveState();
+
+    const display = target
+      .closest(".list-card")
+      ?.querySelector(".list-title-display");
+    if (display) {
+      display.textContent = nextName;
+    }
+    return;
+  }
+
   if (target.matches(".item-check")) {
     const item = findItem(target.dataset.listId, target.dataset.itemId);
     if (!item) {
@@ -590,21 +619,83 @@ function handleListContainerChange(event) {
     return;
   }
 
-  if (target.matches(".item-label-input")) {
+  if (target.matches(".item-label-input, .item-title-input")) {
     const item = findItem(target.dataset.listId, target.dataset.itemId);
     if (!item) {
       return;
     }
 
     const nextLabel = target.value.trim();
-    item.label = nextLabel || item.label;
+    if (!nextLabel) {
+      target.value = item.label;
+      return;
+    }
+
+    if (item.label === nextLabel) {
+      return;
+    }
+
+    item.label = nextLabel;
     saveState();
-    renderLists();
+
+    const display = target
+      .closest(".item-row")
+      ?.querySelector(".item-title-display");
+    if (display) {
+      display.textContent = nextLabel;
+    }
   }
 }
 
 function handleListContainerInput(event) {
   const target = event.target;
+
+  if (target.matches(".list-title-input")) {
+    const listId = target.dataset.listId;
+    const list = state.lists.find((entry) => entry.id === listId);
+    if (!list) {
+      return;
+    }
+
+    const nextName = target.value.trim();
+    if (!nextName) {
+      return;
+    }
+
+    list.name = nextName;
+    saveState();
+
+    const display = target
+      .closest(".list-card")
+      ?.querySelector(".list-title-display");
+    if (display) {
+      display.textContent = nextName;
+    }
+    return;
+  }
+
+  if (target.matches(".item-label-input, .item-title-input")) {
+    const item = findItem(target.dataset.listId, target.dataset.itemId);
+    if (!item) {
+      return;
+    }
+
+    const nextLabel = target.value.trim();
+    if (!nextLabel) {
+      return;
+    }
+
+    item.label = nextLabel;
+    saveState();
+
+    const display = target
+      .closest(".item-row")
+      ?.querySelector(".item-title-display");
+    if (display) {
+      display.textContent = nextLabel;
+    }
+    return;
+  }
 
   if (target.matches(".item-note-input")) {
     const item = findItem(target.dataset.listId, target.dataset.itemId);
@@ -646,11 +737,22 @@ function renderLists() {
       return `
         <article class="list-card">
           <div class="list-head">
-            <h3>${escapeHtml(list.name)}</h3>
+            <h3 class="list-title-display">${escapeHtml(list.name)}</h3>
             <button class="btn btn-ghost list-delete-btn" data-list-id="${list.id}" type="button">
               Delete List
             </button>
           </div>
+
+          <label class="field">
+            <span>List title</span>
+            <input
+              class="list-title-input"
+              type="text"
+              data-list-id="${list.id}"
+              value="${escapeHtml(list.name)}"
+              aria-label="List title"
+            />
+          </label>
 
           <form class="item-create-form inline-form" data-list-id="${list.id}">
             <input class="item-name-input" type="text" placeholder="Add item..." required />
@@ -672,12 +774,14 @@ function renderLists() {
                     data-item-id="${item.id}"
                     ${item.checked ? "checked" : ""}
                   />
+                  <span class="item-title-display">${escapeHtml(item.label)}</span>
                   <input
-                    class="item-label-input"
+                    class="item-label-input item-title-input"
                     type="text"
                     data-list-id="${list.id}"
                     data-item-id="${item.id}"
                     value="${escapeHtml(item.label)}"
+                    aria-label="Item title"
                   />
                   <input
                     class="item-note-input"
