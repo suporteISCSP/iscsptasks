@@ -171,9 +171,12 @@ h1 {
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+  overflow: visible;
 }
 
 .account-menu-btn {
+  position: relative;
+  z-index: 170;
   width: 42px;
   height: 42px;
   border: 1px solid var(--border);
@@ -219,7 +222,7 @@ h1 {
 
 .account-menu-panel {
   position: absolute;
-  top: calc(100% + 8px);
+  top: calc(100% + 10px);
   right: 0;
   min-width: 260px;
   max-width: min(340px, calc(100vw - 24px));
@@ -631,7 +634,7 @@ textarea:focus {
   }
 
   .account-menu-panel {
-    top: calc(100% + 6px);
+    top: calc(100% + 10px);
     min-width: min(300px, calc(100vw - 20px));
     max-width: calc(100vw - 20px);
   }

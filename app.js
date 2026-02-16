@@ -351,12 +351,12 @@ function setAccountMenuState(isOpen) {
 
 function handleAccountMenuToggle(event) {
   event.stopPropagation();
-  if (!appElements.accountMenuPanel) {
+  if (!appElements.accountMenuPanel || !appElements.accountMenuBtn) {
     return;
   }
 
   closeMobileMenu();
-  const isOpen = !appElements.accountMenuPanel.hidden;
+  const isOpen = appElements.accountMenuBtn.getAttribute("aria-expanded") === "true";
   setAccountMenuState(!isOpen);
 }
 
