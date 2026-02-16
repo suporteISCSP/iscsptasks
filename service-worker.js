@@ -1,4 +1,4 @@
-const CACHE_NAME = "dashboard-cache-v11";
+const CACHE_NAME = "dashboard-cache-v12";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -8,7 +8,9 @@ const APP_ASSETS = [
   "./manifest.webmanifest",
   "./assets/background.jpg",
   "./assets/favicon.png",
-  "./app-icon-exact.jpeg",
+  "./assets/app-icon-ios-180.png",
+  "./assets/app-icon-192.png",
+  "./assets/app-icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
