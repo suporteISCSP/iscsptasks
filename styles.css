@@ -745,6 +745,7 @@ textarea:focus {
   }
 
   #taskCreateForm .btn-primary,
+  .list-toggle-btn,
   .task-delete-btn,
   .list-delete-btn,
   .item-delete-btn {
@@ -787,6 +788,7 @@ textarea:focus {
 
 @media (max-width: 980px), (hover: none) and (pointer: coarse) {
   #taskCreateForm .btn-primary,
+  .list-toggle-btn,
   .task-delete-btn,
   .list-delete-btn,
   .item-delete-btn {
