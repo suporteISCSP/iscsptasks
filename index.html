@@ -20,7 +20,17 @@
     <div class="background-shape bg-shape-two"></div>
 
     <header class="top-bar">
-      <div>
+      <div class="top-bar-main">
+        <button
+          id="mobileMenuBtn"
+          class="mobile-menu-btn"
+          type="button"
+          aria-label="Toggle navigation menu"
+          aria-controls="tabsNav"
+          aria-expanded="false"
+        >
+          <span class="mobile-menu-icon" aria-hidden="true"></span>
+        </button>
         <h1 class="brand-title">Dashboard</h1>
       </div>
 
@@ -56,7 +66,7 @@
       </section>
 
       <section id="app" hidden>
-        <nav class="tabs">
+        <nav id="tabsNav" class="tabs">
           <button class="tab-btn active" data-tab="tasks">Tasks</button>
           <button class="tab-btn" data-tab="lists">Lists</button>
         </nav>

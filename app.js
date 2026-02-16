@@ -2,6 +2,7 @@ const STORAGE_KEY = "iscsp_tasks_state_v1";
 const FIREBASE_SDK_VERSION = "10.13.2";
 const SHARED_STATE_COLLECTION = "shared";
 const SHARED_STATE_DOCUMENT = "globalState";
+const MOBILE_LAYOUT_MAX_WIDTH = 820;
 const SESSION_ID = uid();
 const EDITABLE_INPUT_SELECTOR =
   ".task-title-input, .task-note-input, .list-title-input, .item-title-input, .item-note-input, .item-note-create-input, .item-name-input, #taskTitleInput, #taskNoteInput, #listNameInput, #authEmailInput, #authPasswordInput";
@@ -31,6 +32,8 @@ const appElements = {
   userLabel: document.getElementById("userLabel"),
   syncStatus: document.getElementById("syncStatus"),
   logoutBtn: document.getElementById("logoutBtn"),
+  mobileMenuBtn: document.getElementById("mobileMenuBtn"),
+  tabsNav: document.getElementById("tabsNav"),
   tabButtons: Array.from(document.querySelectorAll(".tab-btn")),
   tasksTab: document.getElementById("tasksTab"),
   listsTab: document.getElementById("listsTab"),
@@ -201,6 +204,12 @@ function setupEventHandlers() {
   appElements.tabButtons.forEach((button) => {
     button.addEventListener("click", () => setActiveTab(button.dataset.tab));
   });
+  if (appElements.mobileMenuBtn) {
+    appElements.mobileMenuBtn.addEventListener("click", handleMobileMenuToggle);
+  }
+
+  document.addEventListener("click", handleDocumentClick);
+  window.addEventListener("resize", handleWindowResize);
 
   appElements.taskCreateForm.addEventListener("submit", handleTaskCreate);
   appElements.taskFilterSelect.addEventListener("change", () => {
@@ -295,9 +304,55 @@ function setActiveTab(tab, persist = true) {
 
   appElements.tasksTab.hidden = state.activeTab !== "tasks";
   appElements.listsTab.hidden = state.activeTab !== "lists";
+  closeMobileMenu();
 
   if (persist) {
     saveState();
+  }
+}
+
+function isMobileLayout() {
+  return window.matchMedia(`(max-width: ${MOBILE_LAYOUT_MAX_WIDTH}px)`).matches;
+}
+
+function setMobileMenuState(isOpen) {
+  const open = Boolean(isOpen) && isMobileLayout();
+  document.body.classList.toggle("mobile-menu-open", open);
+  if (appElements.mobileMenuBtn) {
+    appElements.mobileMenuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+}
+
+function handleMobileMenuToggle(event) {
+  event.stopPropagation();
+  const isOpen = document.body.classList.contains("mobile-menu-open");
+  setMobileMenuState(!isOpen);
+}
+
+function closeMobileMenu() {
+  setMobileMenuState(false);
+}
+
+function handleDocumentClick(event) {
+  if (
+    !appElements.tabsNav ||
+    !appElements.mobileMenuBtn ||
+    !isMobileLayout() ||
+    !document.body.classList.contains("mobile-menu-open")
+  ) {
+    return;
+  }
+
+  const clickedMenu = appElements.tabsNav.contains(event.target);
+  const clickedToggle = appElements.mobileMenuBtn.contains(event.target);
+  if (!clickedMenu && !clickedToggle) {
+    closeMobileMenu();
+  }
+}
+
+function handleWindowResize() {
+  if (!isMobileLayout()) {
+    closeMobileMenu();
   }
 }
 
