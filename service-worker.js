@@ -1,4 +1,4 @@
-const CACHE_NAME = "dashboard-cache-v15";
+const CACHE_NAME = "dashboard-cache-v16";
 const APP_ASSETS = [
   "./",
   "./index.html",

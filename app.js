@@ -602,7 +602,23 @@ function renderTasks() {
     })
     .join("");
 
+  forceResizeTaskTitles();
   resizeAutoGrowTextareas(appElements.taskList);
+}
+
+function forceResizeTaskTitles() {
+  const resize = () => {
+    if (!appElements.taskList) {
+      return;
+    }
+    appElements.taskList.querySelectorAll(".task-title-input").forEach((titleField) => {
+      autoResizeTextarea(titleField);
+    });
+  };
+
+  resize();
+  requestAnimationFrame(resize);
+  setTimeout(resize, 140);
 }
 
 function renderStatusOptions(selected) {
