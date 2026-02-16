@@ -9,16 +9,10 @@
   "description": "Shared tasks and lists dashboard.",
   "icons": [
     {
-      "src": "assets/app-icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "assets/app-icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
+      "src": "app-icon-exact.jpeg",
+      "sizes": "945x2048",
+      "type": "image/jpeg",
+      "purpose": "any"
     }
   ]
 }
