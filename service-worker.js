@@ -1,4 +1,4 @@
-const CACHE_NAME = "dashboard-cache-v14";
+const CACHE_NAME = "dashboard-cache-v15";
 const APP_ASSETS = [
   "./",
   "./index.html",
@@ -57,6 +57,11 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  const isNetworkFirstAsset =
+    url.pathname.endsWith(".js") ||
+    url.pathname.endsWith(".css") ||
+    url.pathname.endsWith(".webmanifest");
+
   if (request.mode === "navigate") {
     event.respondWith(
       (async () => {
@@ -65,6 +70,25 @@ self.addEventListener("fetch", (event) => {
         } catch {
           const cache = await caches.open(CACHE_NAME);
           return (await cache.match("./index.html")) || Response.error();
+        }
+      })(),
+    );
+    return;
+  }
+
+  if (isNetworkFirstAsset) {
+    event.respondWith(
+      (async () => {
+        try {
+          const networkResponse = await fetch(request);
+          if (networkResponse && networkResponse.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            cache.put(request, networkResponse.clone()).catch(() => {});
+          }
+          return networkResponse;
+        } catch {
+          const cachedResponse = await caches.match(request);
+          return cachedResponse || Response.error();
         }
       })(),
     );

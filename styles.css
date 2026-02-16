@@ -465,6 +465,7 @@ textarea:focus {
   padding: 6px 8px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .list-head .list-title-input {
@@ -717,6 +718,10 @@ textarea:focus {
     align-items: flex-start;
   }
 
+  .task-head .task-title-input {
+    width: 100%;
+  }
+
   .list-actions {
     width: 100%;
   }
@@ -776,6 +781,22 @@ textarea:focus {
   select,
   textarea {
     font-size: 16px;
+  }
+}
+
+@media (max-width: 980px), (hover: none) and (pointer: coarse) {
+  #taskCreateForm .btn-primary,
+  .task-delete-btn,
+  .list-delete-btn,
+  .item-delete-btn {
+    min-height: 60px;
+    font-size: 1.32rem;
+    line-height: 1.15;
+  }
+
+  .task-head .task-title-input {
+    font-size: 1.28rem;
+    line-height: 1.3;
   }
 }
 
