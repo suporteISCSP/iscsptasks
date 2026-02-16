@@ -32,6 +32,8 @@ const appElements = {
   userLabel: document.getElementById("userLabel"),
   syncStatus: document.getElementById("syncStatus"),
   logoutBtn: document.getElementById("logoutBtn"),
+  accountMenuBtn: document.getElementById("accountMenuBtn"),
+  accountMenuPanel: document.getElementById("accountMenuPanel"),
   mobileMenuBtn: document.getElementById("mobileMenuBtn"),
   tabsNav: document.getElementById("tabsNav"),
   tabButtons: Array.from(document.querySelectorAll(".tab-btn")),
@@ -207,6 +209,9 @@ function setupEventHandlers() {
   if (appElements.mobileMenuBtn) {
     appElements.mobileMenuBtn.addEventListener("click", handleMobileMenuToggle);
   }
+  if (appElements.accountMenuBtn) {
+    appElements.accountMenuBtn.addEventListener("click", handleAccountMenuToggle);
+  }
 
   document.addEventListener("click", handleDocumentClick);
   window.addEventListener("resize", handleWindowResize);
@@ -325,6 +330,7 @@ function setMobileMenuState(isOpen) {
 
 function handleMobileMenuToggle(event) {
   event.stopPropagation();
+  closeAccountMenu();
   const isOpen = document.body.classList.contains("mobile-menu-open");
   setMobileMenuState(!isOpen);
 }
@@ -333,20 +339,55 @@ function closeMobileMenu() {
   setMobileMenuState(false);
 }
 
-function handleDocumentClick(event) {
-  if (
-    !appElements.tabsNav ||
-    !appElements.mobileMenuBtn ||
-    !isMobileLayout() ||
-    !document.body.classList.contains("mobile-menu-open")
-  ) {
+function setAccountMenuState(isOpen) {
+  if (!appElements.accountMenuBtn || !appElements.accountMenuPanel) {
     return;
   }
 
-  const clickedMenu = appElements.tabsNav.contains(event.target);
-  const clickedToggle = appElements.mobileMenuBtn.contains(event.target);
-  if (!clickedMenu && !clickedToggle) {
-    closeMobileMenu();
+  const open = Boolean(isOpen) && !appElements.accountMenuBtn.hidden;
+  appElements.accountMenuPanel.hidden = !open;
+  appElements.accountMenuBtn.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+function handleAccountMenuToggle(event) {
+  event.stopPropagation();
+  if (!appElements.accountMenuPanel) {
+    return;
+  }
+
+  closeMobileMenu();
+  const isOpen = !appElements.accountMenuPanel.hidden;
+  setAccountMenuState(!isOpen);
+}
+
+function closeAccountMenu() {
+  setAccountMenuState(false);
+}
+
+function handleDocumentClick(event) {
+  if (
+    appElements.tabsNav &&
+    appElements.mobileMenuBtn &&
+    isMobileLayout() &&
+    document.body.classList.contains("mobile-menu-open")
+  ) {
+    const clickedMenu = appElements.tabsNav.contains(event.target);
+    const clickedToggle = appElements.mobileMenuBtn.contains(event.target);
+    if (!clickedMenu && !clickedToggle) {
+      closeMobileMenu();
+    }
+  }
+
+  if (
+    appElements.accountMenuBtn &&
+    appElements.accountMenuPanel &&
+    !appElements.accountMenuPanel.hidden
+  ) {
+    const clickedAccountMenu = appElements.accountMenuPanel.contains(event.target);
+    const clickedAccountToggle = appElements.accountMenuBtn.contains(event.target);
+    if (!clickedAccountMenu && !clickedAccountToggle) {
+      closeAccountMenu();
+    }
   }
 }
 
@@ -354,6 +395,7 @@ function handleWindowResize() {
   if (!isMobileLayout()) {
     closeMobileMenu();
   }
+  closeAccountMenu();
 }
 
 function handleTaskCreate(event) {
@@ -1223,6 +1265,11 @@ function setSignedOutState(message, showForm) {
   appElements.authMessage.hidden = false;
   appElements.authStatusText.textContent = message;
   appElements.authForm.hidden = !showForm;
+  closeMobileMenu();
+  closeAccountMenu();
+  if (appElements.accountMenuBtn) {
+    appElements.accountMenuBtn.hidden = true;
+  }
   appElements.userLabel.textContent = "";
   setSyncStatus("", "");
   appElements.logoutBtn.hidden = true;
@@ -1231,6 +1278,10 @@ function setSignedOutState(message, showForm) {
 function setSignedInState(user) {
   appElements.app.hidden = false;
   appElements.authMessage.hidden = true;
+  closeAccountMenu();
+  if (appElements.accountMenuBtn) {
+    appElements.accountMenuBtn.hidden = false;
+  }
   appElements.userLabel.textContent = user?.displayName || user?.email || "Authenticated user";
   if (!appElements.syncStatus.textContent) {
     setSyncStatus("Sync connecting...", "warn");
