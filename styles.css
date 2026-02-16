@@ -454,7 +454,19 @@ textarea:focus {
   font-weight: 700;
 }
 
-.task-head .task-title-input,
+.task-head .task-title-input {
+  font-size: 1.1rem;
+  line-height: 1.25;
+  width: 100%;
+  min-width: 0;
+  flex: 1;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .list-head .list-title-input {
   font-size: 1.1rem;
   min-width: 0;
@@ -724,6 +736,15 @@ textarea:focus {
 
   .btn {
     min-height: 44px;
+  }
+
+  #taskCreateForm .btn-primary,
+  .task-delete-btn,
+  .list-delete-btn,
+  .item-delete-btn {
+    min-height: 56px;
+    font-size: 1.25rem;
+    font-weight: 700;
   }
 
   .task-controls .btn,

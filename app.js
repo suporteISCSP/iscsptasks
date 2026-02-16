@@ -472,6 +472,7 @@ function handleTaskListChange(event) {
     const nextTitle = target.value.trim();
     if (!nextTitle) {
       target.value = task.title;
+      autoResizeTextarea(target);
       return;
     }
 
@@ -496,6 +497,7 @@ function handleTaskListInput(event) {
     }
 
     const nextTitle = target.value.trim();
+    autoResizeTextarea(target);
     if (!nextTitle) {
       return;
     }
@@ -563,13 +565,12 @@ function renderTasks() {
       return `
         <article class="task-card">
           <div class="task-head">
-            <input
-              class="task-title-input"
+            <textarea
+              class="task-title-input auto-grow"
               data-task-id="${task.id}"
-              type="text"
-              value="${escapeHtml(task.title)}"
+              rows="1"
               aria-label="Task title"
-            />
+            >${escapeHtml(task.title)}</textarea>
             <span class="status-pill ${meta.className}">${meta.label}</span>
           </div>
 
