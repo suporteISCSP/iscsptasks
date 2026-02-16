@@ -344,7 +344,24 @@ function setAccountMenuState(isOpen) {
     return;
   }
 
-  const open = Boolean(isOpen) && !appElements.accountMenuBtn.hidden;
+  const hasAccount = !appElements.accountMenuBtn.hidden;
+  if (!hasAccount) {
+    appElements.accountMenuPanel.classList.remove("is-open");
+    appElements.accountMenuPanel.hidden = true;
+    appElements.accountMenuPanel.setAttribute("aria-hidden", "true");
+    appElements.accountMenuBtn.setAttribute("aria-expanded", "false");
+    return;
+  }
+
+  if (!isMobileLayout()) {
+    appElements.accountMenuPanel.classList.remove("is-open");
+    appElements.accountMenuPanel.hidden = false;
+    appElements.accountMenuPanel.setAttribute("aria-hidden", "false");
+    appElements.accountMenuBtn.setAttribute("aria-expanded", "false");
+    return;
+  }
+
+  const open = Boolean(isOpen);
   appElements.accountMenuPanel.classList.toggle("is-open", open);
   appElements.accountMenuPanel.hidden = !open;
   appElements.accountMenuPanel.setAttribute("aria-hidden", open ? "false" : "true");
@@ -353,7 +370,7 @@ function setAccountMenuState(isOpen) {
 
 function handleAccountMenuToggle(event) {
   event.stopPropagation();
-  if (!appElements.accountMenuPanel || !appElements.accountMenuBtn) {
+  if (!appElements.accountMenuPanel || !appElements.accountMenuBtn || !isMobileLayout()) {
     return;
   }
 
@@ -383,6 +400,7 @@ function handleDocumentClick(event) {
   if (
     appElements.accountMenuBtn &&
     appElements.accountMenuPanel &&
+    isMobileLayout() &&
     appElements.accountMenuPanel.classList.contains("is-open")
   ) {
     const clickedAccountMenu = appElements.accountMenuPanel.contains(event.target);
@@ -1268,10 +1286,10 @@ function setSignedOutState(message, showForm) {
   appElements.authStatusText.textContent = message;
   appElements.authForm.hidden = !showForm;
   closeMobileMenu();
-  closeAccountMenu();
   if (appElements.accountMenuBtn) {
     appElements.accountMenuBtn.hidden = true;
   }
+  closeAccountMenu();
   appElements.userLabel.textContent = "";
   setSyncStatus("", "");
   appElements.logoutBtn.hidden = true;
@@ -1280,10 +1298,10 @@ function setSignedOutState(message, showForm) {
 function setSignedInState(user) {
   appElements.app.hidden = false;
   appElements.authMessage.hidden = true;
-  closeAccountMenu();
   if (appElements.accountMenuBtn) {
     appElements.accountMenuBtn.hidden = false;
   }
+  closeAccountMenu();
   appElements.userLabel.textContent = user?.displayName || user?.email || "Authenticated user";
   if (!appElements.syncStatus.textContent) {
     setSyncStatus("Sync connecting...", "warn");
