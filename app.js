@@ -345,7 +345,9 @@ function setAccountMenuState(isOpen) {
   }
 
   const open = Boolean(isOpen) && !appElements.accountMenuBtn.hidden;
+  appElements.accountMenuPanel.classList.toggle("is-open", open);
   appElements.accountMenuPanel.hidden = !open;
+  appElements.accountMenuPanel.setAttribute("aria-hidden", open ? "false" : "true");
   appElements.accountMenuBtn.setAttribute("aria-expanded", open ? "true" : "false");
 }
 
@@ -381,7 +383,7 @@ function handleDocumentClick(event) {
   if (
     appElements.accountMenuBtn &&
     appElements.accountMenuPanel &&
-    !appElements.accountMenuPanel.hidden
+    appElements.accountMenuPanel.classList.contains("is-open")
   ) {
     const clickedAccountMenu = appElements.accountMenuPanel.contains(event.target);
     const clickedAccountToggle = appElements.accountMenuBtn.contains(event.target);
