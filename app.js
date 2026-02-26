@@ -312,6 +312,7 @@ function renderAll() {
 function setActiveTab(tab, persist = true) {
   const requestedTab = normalizeActiveTab(tab);
   state.activeTab = requestedTab === "tv" && !isTvViewAvailable() ? "tasks" : requestedTab;
+  document.body.classList.toggle("tv-view-mode", state.activeTab === "tv" && isTvViewAvailable());
   appElements.tabButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.tab === state.activeTab);
   });
@@ -1407,6 +1408,7 @@ async function writeSharedState(force = false) {
 }
 
 function setSignedOutState(message, showForm) {
+  document.body.classList.remove("tv-view-mode");
   appElements.app.hidden = true;
   appElements.authMessage.hidden = false;
   appElements.authStatusText.textContent = message;
@@ -1424,6 +1426,7 @@ function setSignedOutState(message, showForm) {
 function setSignedInState(user) {
   appElements.app.hidden = false;
   appElements.authMessage.hidden = true;
+  document.body.classList.toggle("tv-view-mode", state.activeTab === "tv" && isTvViewAvailable());
   if (appElements.accountMenuBtn) {
     appElements.accountMenuBtn.hidden = false;
   }

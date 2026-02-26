@@ -530,6 +530,42 @@ textarea:focus {
   background: rgba(34, 197, 94, 0.14);
 }
 
+body.tv-view-mode .app-shell {
+  width: calc(100vw - 20px);
+  margin-bottom: 12px;
+}
+
+body.tv-view-mode #tvTab {
+  padding: 8px;
+  min-height: calc(100vh - 150px);
+}
+
+body.tv-view-mode .tv-board {
+  height: calc(100vh - 168px);
+  grid-template-columns: repeat(4, minmax(240px, 1fr));
+}
+
+body.tv-view-mode .tv-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+body.tv-view-mode .tv-column-list {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+body.tv-view-mode .tv-task-card {
+  padding: 12px;
+}
+
+body.tv-view-mode .tv-task-title {
+  font-size: 1.06rem;
+}
+
 .task-card,
 .list-card {
   border: 1px solid var(--border);
