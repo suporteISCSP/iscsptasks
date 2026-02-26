@@ -37,8 +37,10 @@ const appElements = {
   mobileMenuBtn: document.getElementById("mobileMenuBtn"),
   tabsNav: document.getElementById("tabsNav"),
   tabButtons: Array.from(document.querySelectorAll(".tab-btn")),
+  tvTabButton: document.querySelector('.tab-btn[data-tab="tv"]'),
   tasksTab: document.getElementById("tasksTab"),
   listsTab: document.getElementById("listsTab"),
+  tvTab: document.getElementById("tvTab"),
   taskCreateForm: document.getElementById("taskCreateForm"),
   taskTitleInput: document.getElementById("taskTitleInput"),
   taskNoteInput: document.getElementById("taskNoteInput"),
@@ -49,6 +51,7 @@ const appElements = {
   listNameInput: document.getElementById("listNameInput"),
   itemFilterSelect: document.getElementById("itemFilterSelect"),
   listsContainer: document.getElementById("listsContainer"),
+  tvBoard: document.getElementById("tvBoard"),
 };
 
 let state = loadState();
@@ -101,13 +104,18 @@ function normalizeState(candidate) {
 
   return {
     ...getInitialState(),
-    activeTab: source.activeTab === "lists" ? "lists" : "tasks",
+    activeTab: normalizeActiveTab(source.activeTab),
     taskFilter: normalizeTaskFilter(source.taskFilter),
     taskSort: normalizeTaskSort(source.taskSort),
     itemFilter: normalizeItemFilter(source.itemFilter),
     tasks: normalizeTasks(source.tasks),
     lists: normalizeLists(source.lists),
   };
+}
+
+function normalizeActiveTab(value) {
+  const allowed = ["tasks", "lists", "tv"];
+  return allowed.includes(value) ? value : "tasks";
 }
 
 function normalizeSharedState(candidate) {
@@ -302,13 +310,21 @@ function renderAll() {
 }
 
 function setActiveTab(tab, persist = true) {
-  state.activeTab = tab === "lists" ? "lists" : "tasks";
+  const requestedTab = normalizeActiveTab(tab);
+  state.activeTab = requestedTab === "tv" && !isTvViewAvailable() ? "tasks" : requestedTab;
   appElements.tabButtons.forEach((button) => {
     button.classList.toggle("active", button.dataset.tab === state.activeTab);
   });
+  updateTabAvailabilityUi();
 
   appElements.tasksTab.hidden = state.activeTab !== "tasks";
   appElements.listsTab.hidden = state.activeTab !== "lists";
+  if (appElements.tvTab) {
+    appElements.tvTab.hidden = state.activeTab !== "tv" || !isTvViewAvailable();
+  }
+  if (state.activeTab === "tv") {
+    renderTvView();
+  }
   closeMobileMenu();
 
   if (persist) {
@@ -318,6 +334,16 @@ function setActiveTab(tab, persist = true) {
 
 function isMobileLayout() {
   return window.matchMedia(`(max-width: ${MOBILE_LAYOUT_MAX_WIDTH}px)`).matches;
+}
+
+function isTvViewAvailable() {
+  return !isMobileLayout();
+}
+
+function updateTabAvailabilityUi() {
+  if (appElements.tvTabButton) {
+    appElements.tvTabButton.hidden = !isTvViewAvailable();
+  }
 }
 
 function setMobileMenuState(isOpen) {
@@ -416,6 +442,10 @@ function handleWindowResize() {
     closeMobileMenu();
   }
   closeAccountMenu();
+  updateTabAvailabilityUi();
+  if (!isTvViewAvailable() && state.activeTab === "tv") {
+    setActiveTab("tasks");
+  }
 }
 
 function handleTaskCreate(event) {
@@ -534,6 +564,8 @@ function updateTask(taskId, patch) {
 }
 
 function renderTasks() {
+  renderTvView();
+
   let tasks = [...state.tasks];
   if (state.taskFilter !== "all") {
     tasks = tasks.filter((task) => task.status === state.taskFilter);
@@ -604,6 +636,83 @@ function renderTasks() {
 
   forceResizeTaskTitles();
   resizeAutoGrowTextareas(appElements.taskList);
+}
+
+function renderTvView() {
+  if (!appElements.tvBoard) {
+    return;
+  }
+
+  const tvColumns = [
+    { key: "todo", label: STATUS_META.todo.label, className: "tv-column-todo" },
+    {
+      key: "in_progress",
+      label: STATUS_META.in_progress.label,
+      className: "tv-column-in-progress",
+    },
+    {
+      key: "unresolved",
+      label: STATUS_META.unresolved.label,
+      className: "tv-column-unresolved",
+    },
+    { key: "resolved", label: STATUS_META.resolved.label, className: "tv-column-resolved" },
+  ];
+
+  const tasksByStatus = {
+    todo: [],
+    in_progress: [],
+    unresolved: [],
+    resolved: [],
+  };
+
+  [...state.tasks]
+    .sort((a, b) => {
+      if (a.status !== b.status) {
+        return STATUS_RANK[a.status] - STATUS_RANK[b.status];
+      }
+      return b.createdAt - a.createdAt;
+    })
+    .forEach((task) => {
+      const taskStatus = STATUS_META[task.status] ? task.status : "todo";
+      tasksByStatus[taskStatus].push(task);
+    });
+
+  appElements.tvBoard.innerHTML = tvColumns
+    .map((column) => {
+      const columnTasks = tasksByStatus[column.key] || [];
+      const itemsMarkup =
+        columnTasks.length === 0
+          ? `<p class="tv-column-empty">No tasks</p>`
+          : columnTasks
+              .map((task) => {
+                const created = new Date(task.createdAt).toLocaleString();
+                return `
+                  <article class="tv-task-card">
+                    <h3 class="tv-task-title">${escapeHtml(task.title)}</h3>
+                    ${
+                      task.note && task.note.trim()
+                        ? `<p class="tv-task-note">${escapeHtml(task.note)}</p>`
+                        : ""
+                    }
+                    <p class="tv-task-time">${escapeHtml(created)}</p>
+                  </article>
+                `;
+              })
+              .join("");
+
+      return `
+        <section class="tv-column ${column.className}">
+          <div class="tv-column-head">
+            <span class="tv-column-title">${escapeHtml(column.label)}</span>
+            <span class="tv-column-count">${columnTasks.length}</span>
+          </div>
+          <div class="tv-column-list">
+            ${itemsMarkup}
+          </div>
+        </section>
+      `;
+    })
+    .join("");
 }
 
 function forceResizeTaskTitles() {

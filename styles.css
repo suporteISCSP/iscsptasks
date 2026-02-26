@@ -427,6 +427,109 @@ textarea:focus {
   gap: 12px;
 }
 
+.tv-board {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 12px;
+  align-items: start;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.tv-column {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.8);
+  overflow: hidden;
+  min-height: 320px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.tv-column-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(19, 34, 56, 0.08);
+  font-weight: 700;
+}
+
+.tv-column-title {
+  font-size: 0.95rem;
+}
+
+.tv-column-count {
+  min-width: 1.8rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(19, 34, 56, 0.12);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.tv-column-list {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  align-content: start;
+  max-height: 65vh;
+  overflow-y: auto;
+}
+
+.tv-task-card {
+  border: 1px solid rgba(19, 34, 56, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  padding: 10px;
+}
+
+.tv-task-title {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.tv-task-note {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.87rem;
+  line-height: 1.3;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tv-task-time {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.tv-column-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.tv-column-todo .tv-column-head {
+  background: rgba(156, 163, 175, 0.2);
+}
+
+.tv-column-in-progress .tv-column-head {
+  background: rgba(250, 204, 21, 0.26);
+}
+
+.tv-column-unresolved .tv-column-head {
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.tv-column-resolved .tv-column-head {
+  background: rgba(34, 197, 94, 0.14);
+}
+
 .task-card,
 .list-card {
   border: 1px solid var(--border);
@@ -696,6 +799,11 @@ textarea:focus {
 
   body.mobile-menu-open .tabs {
     display: flex;
+  }
+
+  .tv-tab-btn,
+  #tvTab {
+    display: none !important;
   }
 
   .tab-btn {

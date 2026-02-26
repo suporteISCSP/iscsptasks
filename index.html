@@ -82,6 +82,7 @@
         <nav id="tabsNav" class="tabs">
           <button class="tab-btn active" data-tab="tasks">Tasks</button>
           <button class="tab-btn" data-tab="lists">Lists</button>
+          <button class="tab-btn tv-tab-btn" data-tab="tv">TV View</button>
         </nav>
 
         <section id="tasksTab" class="panel tab-content">
@@ -157,6 +158,13 @@
           </div>
 
           <div id="listsContainer" class="list-grid"></div>
+        </section>
+
+        <section id="tvTab" class="panel tab-content" hidden>
+          <div class="section-head">
+            <h2>TV View</h2>
+          </div>
+          <div id="tvBoard" class="tv-board"></div>
         </section>
       </section>
     </main>
